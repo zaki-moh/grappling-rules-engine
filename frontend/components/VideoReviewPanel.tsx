@@ -4,13 +4,16 @@ const VideoReviewPanel = () => {
   return (
     <div className="flex min-w-0 flex-[1.6] flex-col gap-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <div className="flex items-center justify-between">
+
+        {/* match header */}
         <div>
           <p className="text-sm font-medium text-slate-700">Match Footage</p>
           <p className="text-xs text-slate-500">Selected event replay and full video view</p>
         </div>
         <p className="font-mono text-sm text-slate-500">01:42.35</p>
       </div>
-
+      
+      {/* Video */}
       <div className="relative aspect-video overflow-hidden rounded-2xl bg-slate-900">
         <Image
           src="/stock.jpg"
@@ -25,6 +28,7 @@ const VideoReviewPanel = () => {
         </div>
       </div>
 
+      {/* Focused replay*/}
       <div className="rounded-2xl bg-slate-950 p-3 text-white">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium">Focused Replay</p>
@@ -41,6 +45,7 @@ const VideoReviewPanel = () => {
         </div>
       </div>
 
+      {/* Scoring timeline */}
       <div className="rounded-xl bg-slate-100 p-3">
         <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
           <span>Scoring Timeline</span>

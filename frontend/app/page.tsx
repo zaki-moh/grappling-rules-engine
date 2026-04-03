@@ -9,6 +9,12 @@ export default function Home() {
       >
         Review
       </Link>
+      <Link
+        href="/matches/1"
+        className="pt-4 rounded-md bg-black px-3 py-2 text-sm text-white hover:bg-gray-800"
+      >
+        Selected
+      </Link>
     </div>
   );
 }
