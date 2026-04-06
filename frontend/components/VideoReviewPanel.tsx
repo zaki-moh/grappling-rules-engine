@@ -1,6 +1,15 @@
 import Image from "next/image";
+import ScoringEventMarker from "./ScoringEventMarker";
+import { ScoringEvent } from "@/types/types";
 
-const VideoReviewPanel = () => {
+type VideoReviewPanelProps = {
+  scoringEvent: ScoringEvent | null;
+  scoringEvents: Array<ScoringEvent>;
+  selectedEventId: number | null;
+  onSelectEvent: (id: number) => void;
+}
+
+const VideoReviewPanel = ({ scoringEvent, scoringEvents, selectedEventId, onSelectEvent }: VideoReviewPanelProps) => {
   return (
     <div className="flex min-w-0 flex-[1.6] flex-col gap-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <div className="flex items-center justify-between">
@@ -10,7 +19,7 @@ const VideoReviewPanel = () => {
           <p className="text-sm font-medium text-slate-700">Match Footage</p>
           <p className="text-xs text-slate-500">Selected event replay and full video view</p>
         </div>
-        <p className="font-mono text-sm text-slate-500">01:42.35</p>
+        <p className="font-mono text-sm text-slate-500">{scoringEvent?.timestamp}</p>
       </div>
       
       {/* Video */}
@@ -32,7 +41,7 @@ const VideoReviewPanel = () => {
       <div className="rounded-2xl bg-slate-950 p-3 text-white">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium">Focused Replay</p>
-          <p className="font-mono text-xs text-slate-300">01:40 - 01:45</p>
+          <p className="font-mono text-xs text-slate-300">{scoringEvent?.replayWindow}</p>
         </div>
         <div className="relative h-32 overflow-hidden rounded-xl">
           <Image
@@ -49,13 +58,17 @@ const VideoReviewPanel = () => {
       <div className="rounded-xl bg-slate-100 p-3">
         <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
           <span>Scoring Timeline</span>
-          <span>3 markers</span>
+          <span>{scoringEvents.length} events</span>
         </div>
         <div className="relative h-2 rounded-full bg-slate-200">
-          <span className="absolute left-[18%] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-blue-500 ring-2 ring-white" />
-          <span className="absolute left-[46%] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-amber-500 ring-2 ring-white" />
-          <span className="absolute left-[72%] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-emerald-500 ring-2 ring-white" />
-          <span className="absolute left-[46%] top-1/2 h-4 w-1 -translate-y-1/2 rounded-full bg-slate-900" />
+          {scoringEvents.map((event) => (
+            <ScoringEventMarker
+              key={event.id}
+              positionPercent={event.percent}
+              isSelected={selectedEventId === event.id}
+              onSelect={() => onSelectEvent(event.id)}
+            />
+          ))}
         </div>
       </div>
     </div>
