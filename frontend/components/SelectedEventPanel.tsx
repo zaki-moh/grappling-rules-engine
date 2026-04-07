@@ -2,9 +2,11 @@ import { ScoringEvent } from "@/types/types";
 
 type SelectedEventPanelProps = {
   scoringEvent: ScoringEvent | null;
+  onAccept: () => void;
+  onReject: () => void;
 };
 
-const SelectedEventPanel = ({ scoringEvent }: SelectedEventPanelProps) => {
+const SelectedEventPanel = ({ scoringEvent, onAccept, onReject }: SelectedEventPanelProps) => {
 
   const reviewStatusColors = {
     pending: "bg-amber-100 text-amber-800",
@@ -68,12 +70,14 @@ const SelectedEventPanel = ({ scoringEvent }: SelectedEventPanelProps) => {
           <button
             type="button"
             className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-700"
+            onClick={onAccept}
           >
             Accept Event
           </button>
           <button
             type="button"
             className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-rose-700"
+            onClick={onReject}
           >
             Reject Event
           </button>

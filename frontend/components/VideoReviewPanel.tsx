@@ -65,6 +65,7 @@ const VideoReviewPanel = ({ scoringEvent, scoringEvents, selectedEventId, onSele
             <ScoringEventMarker
               key={event.id}
               positionPercent={event.percent}
+              reviewStatus={event.reviewStatus}
               isSelected={selectedEventId === event.id}
               onSelect={() => onSelectEvent(event.id)}
             />

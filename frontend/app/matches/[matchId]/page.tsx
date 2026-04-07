@@ -6,7 +6,7 @@ import React from 'react'
 
 const Page = () => {
   
-  const scoringEvents: ScoringEvent[] = [
+  const initialEvents: ScoringEvent[] = [
     {
       id: 1,
       percent: 20,
@@ -44,22 +44,58 @@ const Page = () => {
       confidence: 0.91,
       timestamp: "05:47.62",
       replayWindow: "05:45 - 05:50",
-      reviewStatus: "rejected",
+      reviewStatus: "pending",
     },
   ];
+
+  const [scoringEvents, setScoringEvents] = React.useState<ScoringEvent[]>(initialEvents);
+
+
+
+  const acceptedEvents = scoringEvents.filter(
+    (event) => event.reviewStatus === "accepted"
+  );
+
+  const redScore = acceptedEvents
+    .filter((event) => event.competitor === "Red")
+    .reduce((total, event) => total + event.points, 0);
+
+  const blueScore = acceptedEvents
+    .filter((event) => event.competitor === "Blue")
+    .reduce((total, event) => total + event.points, 0);
 
   const [selectedEventId, setSelectedEventId] = React.useState<number | null>(1);
 
   const selectedEvent =
     scoringEvents.find((event) => event.id === selectedEventId) ?? null;
 
+  const handleReviewDecision = (eventId: number, reviewStatus: "accepted" | "rejected") => {
+    setScoringEvents((prev) =>
+      prev.map((event) =>
+        event.id === eventId ? { ...event, reviewStatus } : event
+      )
+    );
+  };
+
 
 
   return (
     <main className="min-h-screen bg-[#f3f4f6] text-slate-900 flex flex-col gap-6 p-6">
-        <header className="flex flex-col gap-1">
+        <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
             <h1 className="text-2xl font-semibold">Match Review</h1>
             <p className="text-sm text-slate-600">Red vs Blue • IBJJF</p>
+          </div>
+          <section className="grid min-w-[18rem] grid-cols-2 gap-3 rounded-3xl bg-white p-3 shadow-sm ring-1 ring-black/5">
+            <div className="rounded-2xl bg-rose-50 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-rose-700">Red Score</p>
+              <p className="mt-2 text-3xl font-semibold text-rose-900">{redScore}</p>
+            </div>
+            <div className="rounded-2xl bg-blue-50 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-blue-700">Blue Score</p>
+              <p className="mt-2 text-3xl font-semibold text-blue-900">{blueScore}</p>
+            </div>
+          </section>
         </header>
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           <VideoReviewPanel
@@ -68,7 +104,11 @@ const Page = () => {
             onSelectEvent={(id) => setSelectedEventId(id)}
             scoringEvent={selectedEvent}
           />
-          <SelectedEventPanel scoringEvent={selectedEvent} />
+          <SelectedEventPanel 
+            scoringEvent={selectedEvent}
+            onAccept={() => selectedEventId !== null && handleReviewDecision(selectedEventId, "accepted")}
+            onReject={() => selectedEventId !== null && handleReviewDecision(selectedEventId, "rejected")}
+         />
         </div>
     </main>
   )
