@@ -19,6 +19,7 @@ const Page = () => {
       timestamp: "01:42.35",
       replayWindow: "01:40 - 01:45",
       reviewStatus: "pending",
+      reviewNote: "",
     },
     {
       id: 2,
@@ -32,6 +33,7 @@ const Page = () => {
       timestamp: "03:18.10",
       replayWindow: "03:15 - 03:20",
       reviewStatus: "accepted",
+      reviewNote: "Clean reversal and stable top position.",
     },
     {
       id: 3,
@@ -45,6 +47,7 @@ const Page = () => {
       timestamp: "05:47.62",
       replayWindow: "05:45 - 05:50",
       reviewStatus: "pending",
+      reviewNote: "",
     },
   ];
 
@@ -69,10 +72,18 @@ const Page = () => {
   const selectedEvent =
     scoringEvents.find((event) => event.id === selectedEventId) ?? null;
 
-  const handleReviewDecision = (eventId: number, reviewStatus: "accepted" | "rejected") => {
+  const handleReviewDecision = (eventId: number, reviewStatus: ScoringEvent["reviewStatus"]) => {
     setScoringEvents((prev) =>
       prev.map((event) =>
         event.id === eventId ? { ...event, reviewStatus } : event
+      )
+    );
+  };
+
+  const handleReviewNoteChange = (eventId: number, reviewNote: string) => {
+    setScoringEvents((prev) =>
+      prev.map((event) =>
+        event.id === eventId ? { ...event, reviewNote } : event
       )
     );
   };
@@ -108,6 +119,8 @@ const Page = () => {
             scoringEvent={selectedEvent}
             onAccept={() => selectedEventId !== null && handleReviewDecision(selectedEventId, "accepted")}
             onReject={() => selectedEventId !== null && handleReviewDecision(selectedEventId, "rejected")}
+            onReset={() => selectedEventId !== null && handleReviewDecision(selectedEventId, "pending")}
+            onNoteChange={(note) => selectedEventId !== null && handleReviewNoteChange(selectedEventId, note)}
          />
         </div>
     </main>

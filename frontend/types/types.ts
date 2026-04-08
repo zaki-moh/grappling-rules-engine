@@ -14,6 +14,6 @@ export type ScoringEvent = {
   timestamp: string;
   replayWindow: string;
   reviewStatus: ReviewStatus;
+  reviewNote: string;
 };
-
 

@@ -4,9 +4,17 @@ type SelectedEventPanelProps = {
   scoringEvent: ScoringEvent | null;
   onAccept: () => void;
   onReject: () => void;
+  onReset: () => void;
+  onNoteChange: (note: string) => void;
 };
 
-const SelectedEventPanel = ({ scoringEvent, onAccept, onReject }: SelectedEventPanelProps) => {
+const SelectedEventPanel = ({
+  scoringEvent,
+  onAccept,
+  onReject,
+  onReset,
+  onNoteChange,
+}: SelectedEventPanelProps) => {
 
   const reviewStatusColors = {
     pending: "bg-amber-100 text-amber-800",
@@ -81,14 +89,26 @@ const SelectedEventPanel = ({ scoringEvent, onAccept, onReject }: SelectedEventP
           >
             Reject Event
           </button>
+          <button
+            type="button"
+            className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={onReset}
+            disabled={scoringEvent?.reviewStatus === "pending"}
+          >
+            Reset to Pending
+          </button>
         </div>
       </div>
 
       <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
         <p className="text-sm font-medium text-slate-700">Review Note</p>
-        <p className="mt-2 text-sm text-slate-500">
-          Add reviewer feedback here later when we connect the real review workflow.
-        </p>
+        <textarea
+          className="mt-3 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100"
+          placeholder="Add reviewer feedback, corrections, or context for this event."
+          value={scoringEvent?.reviewNote ?? ""}
+          onChange={(event) => onNoteChange(event.target.value)}
+          disabled={!scoringEvent}
+        />
       </div>
     </aside>
   );
