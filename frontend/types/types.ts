@@ -1,19 +1,18 @@
 export type ReviewStatus = "pending" | "accepted" | "rejected";
 
-export type CompetitorSide = "Red" | "Blue";
+export type CompetitorSide = "red" | "blue";
 
 export type ScoringEvent = {
   id: number;
   percent: number;
-  eventType: string;
+  event_type: string;
   description: string;
-  competitor: CompetitorSide;
+  team: CompetitorSide;
   points: number;
   position: string;
   confidence: number;
   timestamp: string;
-  replayWindow: string;
-  reviewStatus: ReviewStatus;
-  reviewNote: string;
+  replay_window: string;
+  review_status: ReviewStatus;
+  review_note: string;
 };
-

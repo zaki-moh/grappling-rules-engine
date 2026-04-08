@@ -2,69 +2,73 @@
 import SelectedEventPanel from '@/components/SelectedEventPanel'
 import VideoReviewPanel from '@/components/VideoReviewPanel'
 import { ScoringEvent } from '@/types/types'
+import { useParams } from "next/navigation";
+import { useRouter } from 'next/router';
 import React from 'react'
 
 const Page = () => {
-  
+  const router = useRouter();
+
+  const params = useParams();
+  const matchId = params.matchId;
+
   const initialEvents: ScoringEvent[] = [
     {
       id: 1,
       percent: 20,
-      eventType: "Guard Pass",
+      event_type: "Guard Pass",
       description: "Blue clears the legs and establishes side control.",
-      competitor: "Blue",
+      team: "blue",
       points: 3,
       position: "Side Control",
       confidence: 0.89,
       timestamp: "01:42.35",
-      replayWindow: "01:40 - 01:45",
-      reviewStatus: "pending",
-      reviewNote: "",
+      replay_window: "01:40 - 01:45",
+      review_status: "pending",
+      review_note: "",
     },
     {
       id: 2,
       percent: 50,
-      eventType: "Sweep",
+      event_type: "Sweep",
       description: "Red reverses from guard and comes on top.",
-      competitor: "Red",
+      team: "red",
       points: 2,
       position: "Top Half Guard",
       confidence: 0.82,
       timestamp: "03:18.10",
-      replayWindow: "03:15 - 03:20",
-      reviewStatus: "accepted",
-      reviewNote: "Clean reversal and stable top position.",
+      replay_window: "03:15 - 03:20",
+      review_status: "accepted",
+      review_note: "Clean reversal and stable top position.",
     },
     {
       id: 3,
       percent: 80,
-      eventType: "Back Control",
+      event_type: "Back Control",
       description: "Blue secures back exposure and control.",
-      competitor: "Blue",
+      team: "blue",
       points: 4,
       position: "Back Control",
       confidence: 0.91,
       timestamp: "05:47.62",
-      replayWindow: "05:45 - 05:50",
-      reviewStatus: "pending",
-      reviewNote: "",
+      replay_window: "05:45 - 05:50",
+      review_status: "pending",
+      review_note: "",
     },
   ];
 
   const [scoringEvents, setScoringEvents] = React.useState<ScoringEvent[]>(initialEvents);
 
-
-
   const acceptedEvents = scoringEvents.filter(
-    (event) => event.reviewStatus === "accepted"
+    (event) => event.review_status === "accepted"
   );
 
   const redScore = acceptedEvents
-    .filter((event) => event.competitor === "Red")
+    .filter((event) => event.team === "red")
     .reduce((total, event) => total + event.points, 0);
 
   const blueScore = acceptedEvents
-    .filter((event) => event.competitor === "Blue")
+    .filter((event) => event.team === "blue")
     .reduce((total, event) => total + event.points, 0);
 
   const [selectedEventId, setSelectedEventId] = React.useState<number | null>(1);
@@ -72,18 +76,18 @@ const Page = () => {
   const selectedEvent =
     scoringEvents.find((event) => event.id === selectedEventId) ?? null;
 
-  const handleReviewDecision = (eventId: number, reviewStatus: ScoringEvent["reviewStatus"]) => {
+  const handleReviewDecision = (eventId: number, review_status: ScoringEvent["review_status"]) => {
     setScoringEvents((prev) =>
       prev.map((event) =>
-        event.id === eventId ? { ...event, reviewStatus } : event
+        event.id === eventId ? { ...event, review_status } : event
       )
     );
   };
 
-  const handleReviewNoteChange = (eventId: number, reviewNote: string) => {
+  const handleReviewNoteChange = (eventId: number, review_note: string) => {
     setScoringEvents((prev) =>
       prev.map((event) =>
-        event.id === eventId ? { ...event, reviewNote } : event
+        event.id === eventId ? { ...event, review_note } : event
       )
     );
   };

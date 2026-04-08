@@ -15,12 +15,15 @@ const SelectedEventPanel = ({
   onReset,
   onNoteChange,
 }: SelectedEventPanelProps) => {
-
   const reviewStatusColors = {
     pending: "bg-amber-100 text-amber-800",
     accepted: "bg-emerald-100 text-emerald-800",
     rejected: "bg-rose-100 text-rose-800",
   };
+
+  const displayTeam = scoringEvent?.team
+    ? scoringEvent.team.charAt(0).toUpperCase() + scoringEvent.team.slice(1)
+    : "";
 
   return (
     <aside className="flex w-full flex-col gap-5 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 lg:max-w-sm xl:max-w-md">
@@ -28,14 +31,14 @@ const SelectedEventPanel = ({
         <div className="space-y-1">
           <p className="text-sm font-medium text-slate-700">Selected Event</p>
           <h2 className="text-xl font-semibold text-slate-900">
-            {scoringEvent?.eventType}
+            {scoringEvent?.event_type}
           </h2>
           <p className="text-sm text-slate-500">
             Review the detected action before confirming points.
           </p>
         </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-medium ${reviewStatusColors[scoringEvent?.reviewStatus as keyof typeof reviewStatusColors] || "bg-slate-100 text-slate-800"}`}>
-          {scoringEvent?.reviewStatus}
+        <span className={`rounded-full px-3 py-1 text-xs font-medium ${reviewStatusColors[scoringEvent?.review_status as keyof typeof reviewStatusColors] || "bg-slate-100 text-slate-800"}`}>
+          {scoringEvent?.review_status}
         </span>
       </div>
 
@@ -48,7 +51,7 @@ const SelectedEventPanel = ({
           <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
             <p className="text-xs uppercase tracking-wide text-slate-500">Competitor</p>
             <p className="mt-1 font-medium text-slate-900">
-              {scoringEvent?.competitor}
+              {displayTeam}
             </p>
           </div>
           <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
@@ -93,7 +96,7 @@ const SelectedEventPanel = ({
             type="button"
             className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={onReset}
-            disabled={scoringEvent?.reviewStatus === "pending"}
+            disabled={scoringEvent?.review_status === "pending"}
           >
             Reset to Pending
           </button>
@@ -105,7 +108,7 @@ const SelectedEventPanel = ({
         <textarea
           className="mt-3 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100"
           placeholder="Add reviewer feedback, corrections, or context for this event."
-          value={scoringEvent?.reviewNote ?? ""}
+          value={scoringEvent?.review_note ?? ""}
           onChange={(event) => onNoteChange(event.target.value)}
           disabled={!scoringEvent}
         />

@@ -41,7 +41,7 @@ const VideoReviewPanel = ({ scoringEvent, scoringEvents, selectedEventId, onSele
       <div className="rounded-2xl bg-slate-950 p-3 text-white">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium">Focused Replay</p>
-          <p className="font-mono text-xs text-slate-300">{scoringEvent?.replayWindow}</p>
+          <p className="font-mono text-xs text-slate-300">{scoringEvent?.replay_window}</p>
         </div>
         <div className="relative h-32 overflow-hidden rounded-xl">
           <Image
@@ -65,7 +65,7 @@ const VideoReviewPanel = ({ scoringEvent, scoringEvents, selectedEventId, onSele
             <ScoringEventMarker
               key={event.id}
               positionPercent={event.percent}
-              reviewStatus={event.reviewStatus}
+              review_status={event.review_status}
               isSelected={selectedEventId === event.id}
               onSelect={() => onSelectEvent(event.id)}
             />
