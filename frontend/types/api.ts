@@ -1,4 +1,4 @@
-import type { ReviewStatus, ScoringEvent } from "@/types/types";
+import type { CompetitorSide, ReviewStatus } from "@/types/types";
 
 export type RulesetType = "system" | "custom";
 export type MatchStatus = "created" | "processing" | "ready_for_review" | "completed";
@@ -34,7 +34,7 @@ export type MatchUpdateRequest = {
 export type ScoringEventCreateRequest = {
   match_id: number;
   event_type: string;
-  team: "red" | "blue";
+  team: CompetitorSide;
   points: number;
   timestamp: string;
   position: string;
@@ -44,6 +44,19 @@ export type ScoringEventCreateRequest = {
 export type ScoringEventReviewRequest = {
   review_status: ReviewStatus;
   review_note?: string | null;
+};
+
+export type ApiScoringEvent = {
+  id: number;
+  match_id: number;
+  event_type: string;
+  team: CompetitorSide;
+  points: number;
+  timestamp: string;
+  position: string;
+  confidence: number | null;
+  review_status: ReviewStatus;
+  review_note: string | null;
 };
 
 export type RulesetsResponse = {
@@ -74,17 +87,17 @@ export type StartMatchAnalysisResponse = {
 
 export type ScoringEventsResponse = {
   match_id: number;
-  scoring_events: ScoringEvent[];
+  scoring_events: ApiScoringEvent[];
 };
 
 export type CreateScoringEventResponse = {
   message: string;
-  event: ScoringEvent;
+  event: ApiScoringEvent;
 };
 
 export type ReviewScoringEventResponse = {
   message: string;
-  event: ScoringEvent;
+  event: ApiScoringEvent;
 };
 
 export type ScoreSummaryResponse = {

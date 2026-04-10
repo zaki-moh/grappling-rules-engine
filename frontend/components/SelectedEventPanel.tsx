@@ -2,6 +2,8 @@ import { ScoringEvent } from "@/types/types";
 
 type SelectedEventPanelProps = {
   scoringEvent: ScoringEvent | null;
+  isSavingReview: boolean;
+  reviewError: string | null;
   onAccept: () => void;
   onReject: () => void;
   onReset: () => void;
@@ -10,6 +12,8 @@ type SelectedEventPanelProps = {
 
 const SelectedEventPanel = ({
   scoringEvent,
+  isSavingReview,
+  reviewError,
   onAccept,
   onReject,
   onReset,
@@ -80,15 +84,17 @@ const SelectedEventPanel = ({
         <div className="flex flex-col gap-3">
           <button
             type="button"
-            className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-700"
+            className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onAccept}
+            disabled={!scoringEvent || isSavingReview}
           >
-            Accept Event
+            {isSavingReview ? "Saving..." : "Accept Event"}
           </button>
           <button
             type="button"
-            className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-rose-700"
+            className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onReject}
+            disabled={!scoringEvent || isSavingReview}
           >
             Reject Event
           </button>
@@ -96,10 +102,13 @@ const SelectedEventPanel = ({
             type="button"
             className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={onReset}
-            disabled={scoringEvent?.review_status === "pending"}
+            disabled={!scoringEvent || isSavingReview || scoringEvent.review_status === "pending"}
           >
             Reset to Pending
           </button>
+          {reviewError ? (
+            <p className="text-sm text-rose-700">{reviewError}</p>
+          ) : null}
         </div>
       </div>
 
@@ -110,7 +119,7 @@ const SelectedEventPanel = ({
           placeholder="Add reviewer feedback, corrections, or context for this event."
           value={scoringEvent?.review_note ?? ""}
           onChange={(event) => onNoteChange(event.target.value)}
-          disabled={!scoringEvent}
+          disabled={!scoringEvent || isSavingReview}
         />
       </div>
     </aside>
