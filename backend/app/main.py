@@ -99,6 +99,9 @@ RULESETS: dict[str, Ruleset] = {
 MATCHES: list[Match] = []
 SCORING_EVENTS_BY_MATCH: dict[int, list[ScoringEvent]] = {}
 
+redScore = 0
+blueScore = 0
+
 
 def get_match_or_404(match_id: int) -> Match:
     match = next((stored_match for stored_match in MATCHES if stored_match.id == match_id), None)
@@ -265,7 +268,7 @@ def start_match_analysis(match_id: int):
 
     return {"message": "Match analysis started", "match": match.model_dump()}
     
-
+    
 @app.get("/health")
 def health_check():
     return {"status": "ok"}

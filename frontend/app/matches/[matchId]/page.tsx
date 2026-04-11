@@ -1,7 +1,7 @@
 'use client'
 import SelectedEventPanel from '@/components/SelectedEventPanel'
 import VideoReviewPanel from '@/components/VideoReviewPanel'
-import { getMatch, getScoringEvents, reviewScoringEvent } from '@/app/api'
+import { getMatch, getScoringEvents, reviewScoringEvent, getScoreSummary } from '@/app/api'
 import type { ApiScoringEvent, Match } from '@/types/api'
 import { ScoringEvent } from '@/types/types'
 import { useParams } from "next/navigation";
@@ -69,15 +69,18 @@ const mapScoringEventsForReview = (events: ApiScoringEvent[]): ScoringEvent[] =>
 };
 
 const fetchReviewWorkspaceData = async (matchId: number) => {
-  const [matchResponse, scoringEventsResponse] = await Promise.all([
+  const [matchResponse, scoringEventsResponse, scoreSummaryResponse] = await Promise.all([
     getMatch(matchId),
     getScoringEvents(matchId),
+    getScoreSummary(matchId),
   ]);
 
   return {
     match: matchResponse.match,
     scoringEvents: mapScoringEventsForReview(scoringEventsResponse.scoring_events),
+    scoreSummary: scoreSummaryResponse,
   };
+
 };
 
 const Page = () => {
@@ -92,6 +95,8 @@ const Page = () => {
   const [reviewError, setReviewError] = React.useState<string | null>(null);
   const [scoringEvents, setScoringEvents] = React.useState<ScoringEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = React.useState<number | null>(null);
+  const [redScore, setRedScore] = React.useState(0);
+  const [blueScore, setBlueScore] = React.useState(0);
 
   // This effect is the bridge between the route and the backend:
   // whenever the URL changes to a different /matches/[matchId] page, we
@@ -122,6 +127,8 @@ const Page = () => {
         setMatch(reviewWorkspaceData.match);
         setScoringEvents(reviewWorkspaceData.scoringEvents);
         setSelectedEventId(reviewWorkspaceData.scoringEvents[0]?.id ?? null);
+        setRedScore(reviewWorkspaceData.scoreSummary.confirmed_score_summary.red);
+        setBlueScore(reviewWorkspaceData.scoreSummary.confirmed_score_summary.blue);
       } catch (error) {
         if (!isActive) {
           return;
@@ -149,17 +156,6 @@ const Page = () => {
     };
   }, [isValidMatchId, matchId]);
 
-  const acceptedEvents = scoringEvents.filter(
-    (event) => event.review_status === "accepted"
-  );
-
-  const redScore = acceptedEvents
-    .filter((event) => event.team === "red")
-    .reduce((total, event) => total + event.points, 0);
-
-  const blueScore = acceptedEvents
-    .filter((event) => event.team === "blue")
-    .reduce((total, event) => total + event.points, 0);
 
   const selectedEvent =
     scoringEvents.find((event) => event.id === selectedEventId) ?? null;
@@ -182,7 +178,7 @@ const Page = () => {
         review_status,
         review_note: eventToPersist.review_note || null,
       });
-
+      
       const reviewWorkspaceData = await fetchReviewWorkspaceData(matchId);
 
       setMatch(reviewWorkspaceData.match);
@@ -194,6 +190,8 @@ const Page = () => {
           ? currentSelectedEventId
           : reviewWorkspaceData.scoringEvents[0]?.id ?? null,
       );
+      setRedScore(reviewWorkspaceData.scoreSummary.confirmed_score_summary.red);
+      setBlueScore(reviewWorkspaceData.scoreSummary.confirmed_score_summary.blue);
     } catch (error) {
       setReviewError(
         error instanceof Error
