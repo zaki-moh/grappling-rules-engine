@@ -66,6 +66,7 @@ const getMatch = async (matchId: number): Promise<MatchResponse> => {
   return response.json();
 };
 
+
 const startMatchAnalysis = async (matchId: number): Promise<StartMatchAnalysisResponse> => {
   const response = await fetch(buildUrl(`/matches/${matchId}/analysis`), {
     method: "POST",
@@ -81,6 +82,8 @@ const getScoringEvents = async (matchId: number): Promise<ScoringEventsResponse>
   if (!response.ok) {
     throw new Error("Failed to fetch scoring events");
   }
+
+
   return response.json();
 };
 

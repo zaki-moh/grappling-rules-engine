@@ -1,4 +1,12 @@
+'use client'
 import Link from "next/link";
+import { startMatchAnalysis, createMatch } from '@/app/api'
+import React from "react";
+
+type SetupFeedback = {
+  tone: "error" | "success";
+  message: string;
+} | null;
 
 const rulesets = [
   {
@@ -22,6 +30,91 @@ const rulesets = [
 ];
 
 const NewMatchPage = () => {
+
+  const [selectedRulesetId, setSelectedRulesetId] = React.useState("ibjjf");
+  const [redCompetitor, setRedCompetitor] = React.useState("");
+  const [blueCompetitor, setBlueCompetitor] = React.useState("");
+  const [videoFile, setVideoFile] = React.useState<File | null>(null);
+  const [isSavingReview, setIsSavingReview] = React.useState(false);
+  const [setupFeedback, setSetupFeedback] = React.useState<SetupFeedback>(null);
+  
+  const handleAnalysisStart = async () => {
+    
+    if (isSavingReview) {
+      return;
+    }
+
+    const redCompetitorName = redCompetitor.trim();
+    const blueCompetitorName = blueCompetitor.trim();
+
+    if (!selectedRulesetId) {
+      setSetupFeedback({
+        tone: "error",
+        message: "Choose a ruleset before starting analysis.",
+      });
+      return;
+    }
+
+    if (!redCompetitorName && !blueCompetitorName) {
+      setSetupFeedback({
+        tone: "error",
+        message: "Enter names for both competitors before starting analysis.",
+      });
+      return;
+    }
+
+    if (!redCompetitorName) {
+      setSetupFeedback({
+        tone: "error",
+        message: "Enter a name for the red competitor before starting analysis.",
+      });
+      return;
+    }
+
+    if (!blueCompetitorName) {
+      setSetupFeedback({
+        tone: "error",
+        message: "Enter a name for the blue competitor before starting analysis.",
+      });
+      return;
+    }
+
+    if (!videoFile) {
+      setSetupFeedback({
+        tone: "error",
+        message: "Attach match footage before starting analysis.",
+      });
+      return;
+    }
+
+    try {
+      setIsSavingReview(true);
+      setSetupFeedback(null);
+
+      const createdMatch = await createMatch({
+        ruleset_id: selectedRulesetId,
+        red_competitor: redCompetitorName,
+        blue_competitor: blueCompetitorName,
+      });
+
+      await startMatchAnalysis(createdMatch.match.id);
+      setSetupFeedback({
+        tone: "success",
+        message: "Match created and analysis started. The review workspace is being prepared.",
+      });
+    } catch (error) {
+      setSetupFeedback({
+        tone: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "We could not start analysis. Please try again.",
+      });
+    } finally {
+      setIsSavingReview(false);
+    } 
+  };
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#eeece5] text-slate-900">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[size:48px_48px]" />
@@ -69,7 +162,7 @@ const NewMatchPage = () => {
               </div>
 
               <div className="mt-5 space-y-3">
-                {["Choose ruleset", "Name red and blue corners", "Attach footage", "Start analysis"].map(
+                {["Configure ruleset", "Name red and blue corners", "Attach footage", "Start analysis"].map(
                   (item, index) => (
                     <div key={item} className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200/70">
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-xs font-semibold text-white">
@@ -128,21 +221,22 @@ const NewMatchPage = () => {
                 </div>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-3">
-                  {rulesets.map((ruleset, index) => (
+                  {rulesets.map((ruleset) => (
                     <button
                       key={ruleset.id}
                       type="button"
+                      onClick={() => setSelectedRulesetId(ruleset.id)}
                       className={`group rounded-3xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${
-                        index === 0
+                        ruleset.id === selectedRulesetId
                           ? "border-slate-950 bg-slate-950 text-white shadow-md"
                           : "border-slate-200 bg-slate-50 text-slate-900 hover:border-slate-300"
                       }`}
                     >
-                      <span className={index === 0 ? "text-xs font-medium text-blue-200" : "text-xs font-medium text-slate-500"}>
+                      <span className={ruleset.id === selectedRulesetId ? "text-xs font-medium text-blue-200" : "text-xs font-medium text-slate-500"}>
                         {ruleset.meta}
                       </span>
                       <span className="mt-3 block text-lg font-semibold">{ruleset.name}</span>
-                      <span className={index === 0 ? "mt-3 block text-sm leading-6 text-slate-300" : "mt-3 block text-sm leading-6 text-slate-600"}>
+                      <span className={ruleset.id === selectedRulesetId ? "mt-3 block text-sm leading-6 text-blue-200" : "mt-3 block text-sm leading-6 text-slate-600"}>
                         {ruleset.description}
                       </span>
                     </button>
@@ -163,6 +257,7 @@ const NewMatchPage = () => {
                     <input
                       className="mt-3 w-full rounded-2xl border border-rose-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
                       placeholder="e.g. Athlete A"
+                      onChange={(e) => setRedCompetitor(e.target.value)}
                     />
                   </label>
 
@@ -173,6 +268,7 @@ const NewMatchPage = () => {
                     <input
                       className="mt-3 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
                       placeholder="e.g. Athlete B"
+                      onChange={(e) => setBlueCompetitor(e.target.value)}
                     />
                   </label>
                 </div>
@@ -183,18 +279,32 @@ const NewMatchPage = () => {
                 <p className="mt-1 text-sm text-slate-500">
                   Upload will be wired later. This placeholder shows the future video intake surface.
                 </p>
-                <div className="mt-4 overflow-hidden rounded-3xl bg-slate-950 p-4 text-white shadow-sm ring-1 ring-black/10">
+                <label className="mt-4 block cursor-pointer overflow-hidden rounded-3xl bg-slate-950 p-4 text-white shadow-sm ring-1 ring-black/10">
+                  <input
+                    type="file"
+                    accept="video/*"
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      setVideoFile(file);
+                    }}
+                  />
+
                   <div className="rounded-2xl border border-dashed border-white/20 bg-white/[0.03] p-6">
                     <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] px-6 py-8 text-center ring-1 ring-white/10">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-sm font-semibold text-slate-950">
-                        MP4
+                      <div className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-950">
+                        Match Video
                       </div>
                       <p className="mt-4 text-sm font-medium text-white">
-                        Drop match footage here
+                        {videoFile ? videoFile.name : "Drop match footage here"}
                       </p>
+
                       <p className="mt-1 max-w-sm text-sm leading-6 text-slate-400">
-                        Future support for uploads, timestamps, and analysis job status.
+                        {videoFile
+                          ? "Video selected. Upload handling will be wired next."
+                          : "Click to choose a video file or drag one here later."}
                       </p>
+
                       <div className="mt-6 flex w-full max-w-md items-center gap-2">
                         <span className="h-2 flex-1 rounded-full bg-rose-500/80" />
                         <span className="h-2 flex-[1.4] rounded-full bg-slate-700" />
@@ -202,18 +312,38 @@ const NewMatchPage = () => {
                       </div>
                     </div>
                   </div>
-                </div>
+                </label>
               </section>
 
               <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
-                <p className="max-w-md text-sm leading-6 text-slate-500">
-                  Next step: create the match, start analysis, then route into the review workspace.
-                </p>
+                <div className="max-w-md">
+                  <p className="text-sm leading-6 text-slate-500">
+                    Next step: create the match, start analysis, then route into the review workspace.
+                  </p>
+                  {setupFeedback ? (
+                    <p
+                      className={`mt-3 rounded-2xl px-4 py-3 text-sm font-medium ring-1 ${
+                        setupFeedback.tone === "error"
+                          ? "bg-rose-50 text-rose-900 ring-rose-100"
+                          : "bg-emerald-50 text-emerald-900 ring-emerald-100"
+                      }`}
+                      role={setupFeedback.tone === "error" ? "alert" : "status"}
+                    >
+                      {setupFeedback.message}
+                    </p>
+                  ) : null}
+                </div>
                 <button
                   type="button"
-                  className="rounded-2xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
+                  disabled={isSavingReview}
+                  className={`rounded-2xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition ${
+                    isSavingReview
+                      ? "cursor-not-allowed bg-slate-500 opacity-80"
+                      : "bg-slate-950 hover:-translate-y-0.5 hover:bg-slate-800"
+                  }`}
+                  onClick={handleAnalysisStart}
                 >
-                  Start Analysis
+                  {isSavingReview ? "Starting analysis..." : "Start Analysis"}
                 </button>
               </div>
             </div>

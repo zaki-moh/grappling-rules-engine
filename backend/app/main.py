@@ -165,6 +165,7 @@ def get_match(match_id: int):
     return {"match": match.model_dump()}
 
 
+
 @app.patch("/matches/{match_id}")
 def update_match(match_id: int, match_update: MatchUpdate):
     match = get_match_or_404(match_id)
@@ -268,7 +269,7 @@ def start_match_analysis(match_id: int):
 
     return {"message": "Match analysis started", "match": match.model_dump()}
     
-    
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
