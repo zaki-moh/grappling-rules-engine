@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #eeece5;
+  --foreground: #0f172a;
 }
 
 @theme inline {
@@ -15,13 +15,41 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #eeece5;
+    --foreground: #0f172a;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+@keyframes ruleset-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ruleset-orbit-label {
+  from {
+    rotate: 0deg;
+  }
+
+  to {
+    rotate: -360deg;
+  }
+}
+
+.ruleset-orbit {
+  animation: ruleset-orbit 24s linear infinite;
+}
+
+.ruleset-orbit-label {
+  animation: ruleset-orbit-label 24s linear infinite;
 }

@@ -216,8 +216,8 @@ const Page = () => {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-[#f3f4f6] p-6">
-        <div className="rounded-3xl bg-white p-6 text-sm text-slate-600 shadow-sm ring-1 ring-black/5">
+      <main className="min-h-screen bg-[#eeece5] bg-[linear-gradient(rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[size:48px_48px] p-6">
+        <div className="rounded-3xl bg-white/90 p-6 text-sm text-slate-600 shadow-sm ring-1 ring-black/5 backdrop-blur">
           Loading match review...
         </div>
       </main>
@@ -226,8 +226,8 @@ const Page = () => {
 
   if (error) {
     return (
-      <main className="min-h-screen bg-[#f3f4f6] p-6">
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
+      <main className="min-h-screen bg-[#eeece5] bg-[linear-gradient(rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[size:48px_48px] p-6">
+        <div className="rounded-3xl bg-white/90 p-6 shadow-sm ring-1 ring-black/5 backdrop-blur">
           <h1 className="text-xl font-semibold text-slate-900">Unable to load match review</h1>
           <p className="mt-2 text-sm text-slate-600">{error}</p>
         </div>
@@ -236,18 +236,18 @@ const Page = () => {
   }
 
   return (
-    <main className="min-h-screen bg-[#f3f4f6] text-slate-900 flex flex-col gap-6 p-6">
+    <main className="min-h-screen bg-[#eeece5] bg-[linear-gradient(rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[size:48px_48px] text-slate-900 flex flex-col gap-6 p-6">
         <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Match Review</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Match Review</h1>
             <p className="text-sm text-slate-600">{matchTitle}</p>
           </div>
-          <section className="grid min-w-[18rem] grid-cols-2 gap-3 rounded-3xl bg-white p-3 shadow-sm ring-1 ring-black/5">
-            <div className="rounded-2xl bg-rose-50 px-4 py-3">
+          <section className="grid min-w-[18rem] grid-cols-2 gap-3 rounded-3xl bg-white/90 p-3 shadow-sm ring-1 ring-black/5 backdrop-blur">
+            <div className="rounded-2xl bg-rose-50 px-4 py-3 ring-1 ring-rose-100">
               <p className="text-xs font-medium uppercase tracking-wide text-rose-700">Red Score</p>
               <p className="mt-2 text-3xl font-semibold text-rose-900">{redScore}</p>
             </div>
-            <div className="rounded-2xl bg-blue-50 px-4 py-3">
+            <div className="rounded-2xl bg-blue-50 px-4 py-3 ring-1 ring-blue-100">
               <p className="text-xs font-medium uppercase tracking-wide text-blue-700">Blue Score</p>
               <p className="mt-2 text-3xl font-semibold text-blue-900">{blueScore}</p>
             </div>
