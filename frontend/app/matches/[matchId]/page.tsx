@@ -27,10 +27,9 @@ const formatSecondsAsTimestamp = (seconds: number) => {
   return `${hours}:${minutes}:${remainingSeconds}`;
 };
 
-const buildReplayWindow = (timestamp: string) => {
-  const eventSeconds = parseTimestampToSeconds(timestamp);
-  const replayStart = formatSecondsAsTimestamp(eventSeconds - 2);
-  const replayEnd = formatSecondsAsTimestamp(eventSeconds + 2);
+const buildReplayWindow = (replayStartSeconds: number, replayEndSeconds: number) => {
+  const replayStart = formatSecondsAsTimestamp(replayStartSeconds);
+  const replayEnd = formatSecondsAsTimestamp(replayEndSeconds);
 
   return `${replayStart} - ${replayEnd}`;
 };
@@ -62,7 +61,12 @@ const mapScoringEventsForReview = (events: ApiScoringEvent[]): ScoringEvent[] =>
     position: event.position,
     confidence: event.confidence ?? 0,
     timestamp: event.timestamp,
-    replay_window: buildReplayWindow(event.timestamp),
+    replay_start_seconds: event.replay_start_seconds,
+    replay_end_seconds: event.replay_end_seconds,
+    replay_window: buildReplayWindow(
+      event.replay_start_seconds,
+      event.replay_end_seconds,
+    ),
     review_status: event.review_status,
     review_note: event.review_note ?? "",
   }));

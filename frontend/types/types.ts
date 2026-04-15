@@ -12,6 +12,8 @@ export type ScoringEvent = {
   position: string;
   confidence: number;
   timestamp: string;
+  replay_start_seconds: number;
+  replay_end_seconds: number;
   replay_window: string;
   review_status: ReviewStatus;
   review_note: string;

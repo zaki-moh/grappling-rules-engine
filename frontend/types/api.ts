@@ -16,6 +16,10 @@ export type Match = {
   red_competitor: string | null;
   blue_competitor: string | null;
   status: MatchStatus;
+  video_filename: string | null;
+  video_path: string | null;
+  video_content_type: string | null;
+  video_size_bytes: number | null;
 };
 
 export type MatchCreateRequest = {
@@ -37,6 +41,8 @@ export type ScoringEventCreateRequest = {
   team: CompetitorSide;
   points: number;
   timestamp: string;
+  replay_start_seconds: number;
+  replay_end_seconds: number;
   position: string;
   confidence?: number | null;
 };
@@ -53,6 +59,8 @@ export type ApiScoringEvent = {
   team: CompetitorSide;
   points: number;
   timestamp: string;
+  replay_start_seconds: number;
+  replay_end_seconds: number;
   position: string;
   confidence: number | null;
   review_status: ReviewStatus;
@@ -80,9 +88,20 @@ export type CreateMatchResponse = {
   match: Match;
 };
 
+export type UploadMatchVideoResponse = {
+  message: string;
+  match: Match;
+  video: {
+    filename: string | null;
+    content_type: string | null;
+    size_bytes: number | null;
+  };
+};
+
 export type StartMatchAnalysisResponse = {
   message: string;
   match: Match;
+  created_scoring_events: number;
 };
 
 export type ScoringEventsResponse = {

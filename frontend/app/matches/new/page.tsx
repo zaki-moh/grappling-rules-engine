@@ -1,33 +1,27 @@
 'use client'
 import Link from "next/link";
-import { startMatchAnalysis, createMatch } from '@/app/api'
+import { startMatchAnalysis, createMatch, getRulesets, uploadMatchVideo } from '@/app/api'
+import type { Ruleset } from "@/types/api";
 import React from "react";
+import { useRouter } from "next/navigation";
 
 type SetupFeedback = {
   tone: "error" | "success";
   message: string;
 } | null;
 
-const rulesets = [
-  {
-    id: "ibjjf",
-    name: "IBJJF",
-    description: "Gi and no-gi scoring with advantages, penalties, and positional points.",
-    meta: "Tournament standard",
-  },
-  {
-    id: "adcc",
-    name: "ADCC",
-    description: "Submission grappling rules with points windows and control emphasis.",
-    meta: "Submission grappling",
-  },
-  {
-    id: "custom",
-    name: "Custom",
-    description: "Flexible setup for gyms, superfights, and experimental formats.",
-    meta: "Gym configurable",
-  },
-];
+
+type RulesetCard = Ruleset & {
+  meta: string;
+};
+
+const buildRulesetCards = (rulesets: Ruleset[]): RulesetCard[] => {
+  return rulesets.map((ruleset) => ({
+    ...ruleset,
+    meta: ruleset.type === "system" ? "Tournament standard" : "Gym configurable",
+  }));
+};
+
 
 const NewMatchPage = () => {
 
@@ -37,6 +31,27 @@ const NewMatchPage = () => {
   const [videoFile, setVideoFile] = React.useState<File | null>(null);
   const [isSavingReview, setIsSavingReview] = React.useState(false);
   const [setupFeedback, setSetupFeedback] = React.useState<SetupFeedback>(null);
+  const [rulesets, setRulesets] = React.useState<RulesetCard[]>([]);
+  const router = useRouter();
+
+  React.useEffect(() => {
+    const loadRulesets = async () => {
+      try {
+        const response = await getRulesets();
+        const rulesetCards = buildRulesetCards(response.rulesets);
+
+        setRulesets(rulesetCards);
+        setSelectedRulesetId(rulesetCards[0]?.id ?? "");
+      } catch {
+        setSetupFeedback({
+          tone: "error",
+          message: "We could not load rulesets. Please refresh and try again.",
+        });
+      }
+    };
+
+    loadRulesets();
+  }, []);
   
   const handleAnalysisStart = async () => {
     
@@ -97,11 +112,13 @@ const NewMatchPage = () => {
         blue_competitor: blueCompetitorName,
       });
 
+      await uploadMatchVideo(createdMatch.match.id, videoFile);
       await startMatchAnalysis(createdMatch.match.id);
       setSetupFeedback({
         tone: "success",
         message: "Match created and analysis started. The review workspace is being prepared.",
       });
+      router.push(`/matches/${createdMatch.match.id}`);
     } catch (error) {
       setSetupFeedback({
         tone: "error",
@@ -277,7 +294,7 @@ const NewMatchPage = () => {
               <section>
                 <h3 className="text-sm font-semibold text-slate-950">Footage</h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  Upload will be wired later. This placeholder shows the future video intake surface.
+                  Attach the match video that the backend analysis pipeline should inspect.
                 </p>
                 <label className="mt-4 block cursor-pointer overflow-hidden rounded-3xl bg-slate-950 p-4 text-white shadow-sm ring-1 ring-black/10">
                   <input
@@ -301,7 +318,7 @@ const NewMatchPage = () => {
 
                       <p className="mt-1 max-w-sm text-sm leading-6 text-slate-400">
                         {videoFile
-                          ? "Video selected. Upload handling will be wired next."
+                          ? "Video selected. It will upload when analysis starts."
                           : "Click to choose a video file or drag one here later."}
                       </p>
 

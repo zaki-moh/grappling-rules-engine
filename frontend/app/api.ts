@@ -13,11 +13,13 @@ import type {
   ScoringEventsResponse,
   ScoreSummaryResponse,
   StartMatchAnalysisResponse,
+  UploadMatchVideoResponse,
 } from "@/types/api";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 const buildUrl = (path: string) => `${API_BASE_URL}${path}`;
+
 
 const getRulesets = async (): Promise<RulesetsResponse> => {
   const response = await fetch(buildUrl("/rulesets"));
@@ -62,6 +64,23 @@ const getMatch = async (matchId: number): Promise<MatchResponse> => {
   const response = await fetch(buildUrl(`/matches/${matchId}`));
   if (!response.ok) {
     throw new Error("Failed to fetch match");
+  }
+  return response.json();
+};
+
+const uploadMatchVideo = async (
+  matchId: number,
+  videoFile: File,
+): Promise<UploadMatchVideoResponse> => {
+  const formData = new FormData();
+  formData.append("video", videoFile);
+
+  const response = await fetch(buildUrl(`/matches/${matchId}/video`), {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) {
+    throw new Error("Failed to upload match video");
   }
   return response.json();
 };
@@ -146,6 +165,7 @@ export {
   createMatch,
   getMatches,
   getMatch,
+  uploadMatchVideo,
   startMatchAnalysis,
   getScoringEvents,
   createScoringEvent,

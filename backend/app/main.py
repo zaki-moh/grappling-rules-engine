@@ -1,7 +1,12 @@
+from pathlib import Path
+import shutil
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+from app.video_analysis import analyze_match_video
 
 RulesetType = Literal["system", "custom"]
 MatchStatus = Literal["created", "processing", "ready_for_review", "completed"]
@@ -43,6 +48,10 @@ class Match(BaseModel):
     red_competitor: str | None = None
     blue_competitor: str | None = None
     status: MatchStatus = "created"
+    video_filename: str | None = None
+    video_path: str | None = None
+    video_content_type: str | None = None
+    video_size_bytes: int | None = Field(default=None, ge=0)
 
 
 class ScoringEventCreate(BaseModel):
@@ -53,6 +62,8 @@ class ScoringEventCreate(BaseModel):
     team: CompetitorSide
     points: int = Field(ge=0)
     timestamp: str = Field(pattern=r"^\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$")
+    replay_start_seconds: float = Field(ge=0)
+    replay_end_seconds: float = Field(ge=0)
     position: str = Field(min_length=1)
     confidence: float | None = Field(default=None, ge=0, le=1)
 
@@ -66,6 +77,8 @@ class ScoringEvent(BaseModel):
     team: CompetitorSide
     points: int = Field(ge=0)
     timestamp: str = Field(pattern=r"^\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$")
+    replay_start_seconds: float = Field(ge=0)
+    replay_end_seconds: float = Field(ge=0)
     position: str = Field(min_length=1)
     confidence: float | None = Field(default=None, ge=0, le=1)
     review_status: ReviewStatus = "pending"
@@ -81,6 +94,17 @@ class ScoringEventReview(BaseModel):
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 RULESETS: dict[str, Ruleset] = {
     "ibjjf": Ruleset(
         id="ibjjf",
@@ -94,10 +118,17 @@ RULESETS: dict[str, Ruleset] = {
         type="system",
         description="Abu Dhabi Combat Club submission grappling rules.",
     ),
+    "Custom": Ruleset(
+        id="Custom",
+        name="Custom",
+        type="custom",
+        description="A gym-defined ruleset.",
+    ),
 }
 
 MATCHES: list[Match] = []
 SCORING_EVENTS_BY_MATCH: dict[int, list[ScoringEvent]] = {}
+UPLOAD_ROOT = Path(__file__).resolve().parents[1] / "uploads"
 
 redScore = 0
 blueScore = 0
@@ -163,6 +194,44 @@ def get_matches():
 def get_match(match_id: int):
     match = get_match_or_404(match_id)
     return {"match": match.model_dump()}
+
+
+@app.post("/matches/{match_id}/video")
+def upload_match_video(match_id: int, video: UploadFile = File(...)):
+    match = get_match_or_404(match_id)
+
+    if match.status != "created":
+        raise HTTPException(
+            status_code=409,
+            detail="video can only be uploaded before analysis starts",
+        )
+
+    if video.content_type is None or not video.content_type.startswith("video/"):
+        raise HTTPException(status_code=415, detail="uploaded file must be a video")
+
+    filename = video.filename or "match-video"
+    file_extension = Path(filename).suffix.lower() or ".mp4"
+    match_upload_dir = UPLOAD_ROOT / "matches" / str(match_id)
+    match_upload_dir.mkdir(parents=True, exist_ok=True)
+
+    stored_video_path = match_upload_dir / f"source{file_extension}"
+    with stored_video_path.open("wb") as stored_video:
+        shutil.copyfileobj(video.file, stored_video)
+
+    match.video_filename = filename
+    match.video_path = str(stored_video_path)
+    match.video_content_type = video.content_type
+    match.video_size_bytes = stored_video_path.stat().st_size
+
+    return {
+        "message": "Match video uploaded",
+        "match": match.model_dump(),
+        "video": {
+            "filename": match.video_filename,
+            "content_type": match.video_content_type,
+            "size_bytes": match.video_size_bytes,
+        },
+    }
 
 
 
@@ -264,10 +333,35 @@ def start_match_analysis(match_id: int):
 
     if match.status != "created":
         raise HTTPException(status_code=409, detail="analysis has already been started for this match")
+    if match.video_path is None:
+        raise HTTPException(status_code=409, detail="upload match video before starting analysis")
 
     match.status = "processing"
+    detected_events = analyze_match_video(Path(match.video_path))
 
-    return {"message": "Match analysis started", "match": match.model_dump()}
+    SCORING_EVENTS_BY_MATCH[match_id] = [
+        ScoringEvent(
+            id=index + 1,
+            match_id=match_id,
+            event_type=event.event_type,
+            team=event.team,
+            points=event.points,
+            timestamp=event.timestamp,
+            replay_start_seconds=event.replay_start_seconds,
+            replay_end_seconds=event.replay_end_seconds,
+            position=event.position,
+            confidence=event.confidence,
+        )
+        for index, event in enumerate(detected_events)
+    ]
+
+    match.status = "ready_for_review"
+
+    return {
+        "message": "Match analysis completed",
+        "match": match.model_dump(),
+        "created_scoring_events": len(detected_events),
+    }
     
 
 @app.get("/health")

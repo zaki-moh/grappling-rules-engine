@@ -79,38 +79,51 @@ const SelectedEventPanel = ({
         </div>
       </div>
 
-      <div className="rounded-2xl bg-slate-950 p-4 text-white shadow-sm ring-1 ring-black/10">
-        <p className="mb-3 text-sm font-semibold text-white">Reviewer Actions</p>
-        <div className="flex flex-col gap-3">
+      <div className="rounded-2xl bg-[#f8f4ec] p-4 shadow-sm ring-1 ring-black/5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-950">Reviewer Actions</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Confirm, reject, or return this event to pending.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
           <button
             type="button"
-            className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-200 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={onAccept}
             disabled={!scoringEvent || isSavingReview}
           >
             {isSavingReview ? "Saving..." : "Accept Event"}
           </button>
+
           <button
             type="button"
-            className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800 ring-1 ring-rose-200 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={onReject}
             disabled={!scoringEvent || isSavingReview}
           >
             Reject Event
           </button>
-          <button
-            type="button"
-            className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={onReset}
-            disabled={!scoringEvent || isSavingReview || scoringEvent.review_status === "pending"}
-          >
-            Reset to Pending
-          </button>
-          {reviewError ? (
-            <p className="text-sm text-rose-200">{reviewError}</p>
-          ) : null}
         </div>
+
+        <button
+          type="button"
+          className="mt-3 w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={onReset}
+          disabled={!scoringEvent || isSavingReview || scoringEvent.review_status === "pending"}
+        >
+          Reset to Pending
+        </button>
+        {reviewError ? (
+          <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-900 ring-1 ring-rose-100">
+            {reviewError}
+          </p>
+        ) : null}
       </div>
+
 
       <div className="rounded-2xl border border-dashed border-slate-300 bg-[#eeece5] p-4">
         <p className="text-sm font-semibold text-slate-900">Review Note</p>
