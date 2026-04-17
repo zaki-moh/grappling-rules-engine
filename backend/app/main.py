@@ -62,8 +62,6 @@ class ScoringEventCreate(BaseModel):
     team: CompetitorSide
     points: int = Field(ge=0)
     timestamp: str = Field(pattern=r"^\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$")
-    replay_start_seconds: float = Field(ge=0)
-    replay_end_seconds: float = Field(ge=0)
     position: str = Field(min_length=1)
     confidence: float | None = Field(default=None, ge=0, le=1)
 
@@ -77,8 +75,6 @@ class ScoringEvent(BaseModel):
     team: CompetitorSide
     points: int = Field(ge=0)
     timestamp: str = Field(pattern=r"^\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$")
-    replay_start_seconds: float = Field(ge=0)
-    replay_end_seconds: float = Field(ge=0)
     position: str = Field(min_length=1)
     confidence: float | None = Field(default=None, ge=0, le=1)
     review_status: ReviewStatus = "pending"
@@ -347,8 +343,6 @@ def start_match_analysis(match_id: int):
             team=event.team,
             points=event.points,
             timestamp=event.timestamp,
-            replay_start_seconds=event.replay_start_seconds,
-            replay_end_seconds=event.replay_end_seconds,
             position=event.position,
             confidence=event.confidence,
         )
