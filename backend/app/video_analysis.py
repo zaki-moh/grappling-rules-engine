@@ -42,6 +42,16 @@ class DetectedScoringEvent:
     position: str
     confidence: float | None = None
 
+@dataclass(frozen=True)
+class CandidateAction:
+    action_type: str
+    start_seconds: float
+    end_seconds: float
+    peak_seconds: float
+    confidence: float | None = None
+    position: str = "unknown"
+    team: DetectedTeam | None = None
+
 
 def get_video_metadata(video_path: Path) -> VideoMetadata:
     """Open a video file with OpenCV and extract basic timing/size metadata."""
@@ -80,7 +90,7 @@ def get_video_metadata(video_path: Path) -> VideoMetadata:
 def sample_video_frames(
     video_path: Path,
     metadata: VideoMetadata,
-    sample_every_seconds: float = 5.0,
+    sample_every_seconds: float = 1.0,
 ) -> list[SampledFrame]:
     """Sample timestamped frames from a video at a fixed time interval."""
 
@@ -237,10 +247,62 @@ def save_debug_frames(
     return saved_paths
 
 
-def detect_candidate_actions():
-    """Placeholder for the future action detector."""
+def detect_candidate_actions(
+    sampled_frames: list[SampledFrame],
+    metadata: VideoMetadata,
+    window_size: int = 5,
+    motion_threshold: float = 15.0,
+) -> list[CandidateAction]:
+    """Detect high-motion windows that may contain score-relevant actions."""
 
-    return []
+    if window_size < 2:
+        raise ValueError("window_size must be at least 2")
+    if motion_threshold < 0:
+        raise ValueError("motion_threshold must be greater than or equal to 0")
+    if len(sampled_frames) < window_size:
+        return []
+
+    candidate_actions: list[CandidateAction] = []
+    gray_frames: list[np.ndarray] = []
+
+    for frame in sampled_frames:
+        gray_image = cv2.cvtColor(frame.image, cv2.COLOR_BGR2GRAY)
+        gray_frames.append(gray_image)
+
+    for start_index in range(0, len(gray_frames) - window_size + 1):
+        gray_window = gray_frames[start_index : start_index + window_size]
+
+        motion_scores: list[float] = []
+        for index in range(1, len(gray_window)):
+            prev = gray_window[index - 1]
+            curr = gray_window[index]
+            frame_diff = cv2.absdiff(curr, prev)
+            motion_score = float(np.mean(frame_diff))
+            motion_scores.append(motion_score)
+
+        if not motion_scores:
+            continue
+
+        window_motion_score = sum(motion_scores) / len(motion_scores)
+
+        if window_motion_score > motion_threshold:
+            start_seconds = sampled_frames[start_index].timestamp_seconds
+            end_seconds = sampled_frames[start_index + window_size - 1].timestamp_seconds
+            peak_motion_index = motion_scores.index(max(motion_scores))
+            peak_frame_index = start_index + peak_motion_index + 1
+            peak_seconds = sampled_frames[peak_frame_index].timestamp_seconds
+
+            candidate_actions.append(
+                CandidateAction(
+                    action_type="high_motion",
+                    start_seconds=start_seconds,
+                    end_seconds=end_seconds,
+                    peak_seconds=peak_seconds,
+                    confidence=window_motion_score,
+                )
+            )
+
+    return candidate_actions
 
 
 def build_scoring_events_from_actions():
