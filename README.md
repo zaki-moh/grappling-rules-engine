@@ -1,5 +1,5 @@
 ## grappling-rules-engine
-Computer vision project to help assist in BJJ scoring. Allows for rule config (IBJJF, ADCC, Custon, etc) and will score input footage based on said ruleset. It creates a timeline of "Scoring Event" (ex: Sweep, Takedown, etc), and allows for user to review these scoring events and accept/reject them based on the replay. This projects seeks to make BJJ judging more accurate and objective, it serves as a suplement for judging NOT a full replacement. 
+Computer vision project to help assist in BJJ scoring. Allows for rule config (IBJJF, ADCC, Custon, etc) and will score input footage based on said ruleset. It creates a timeline of "Scoring Event" (ex: Sweep, Takedown, etc), and allows for user to review these scoring events and accept/reject them based on the replay. This projects seeks to make BJJ judging more accurate and objective, it serves as a supplement for judging not a full replacement. 
 
 ## Demo
 <img width="1406" height="666" alt="image" src="https://github.com/user-attachments/assets/bcaba4b8-c219-4aa9-aefa-6147c901202c" />
