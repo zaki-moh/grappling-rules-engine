@@ -20,6 +20,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8
 
 const buildUrl = (path: string) => `${API_BASE_URL}${path}`;
 
+const getMatchVideoUrl = (matchId: number) => buildUrl(`/matches/${matchId}/video`);
+
 
 const getRulesets = async (): Promise<RulesetsResponse> => {
   const response = await fetch(buildUrl("/rulesets"));
@@ -165,6 +167,7 @@ export {
   createMatch,
   getMatches,
   getMatch,
+  getMatchVideoUrl,
   uploadMatchVideo,
   startMatchAnalysis,
   getScoringEvents,

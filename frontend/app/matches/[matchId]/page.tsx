@@ -1,7 +1,7 @@
 'use client'
 import SelectedEventPanel from '@/components/SelectedEventPanel'
 import VideoReviewPanel from '@/components/VideoReviewPanel'
-import { getMatch, getScoringEvents, reviewScoringEvent, getScoreSummary } from '@/app/api'
+import { getMatch, getMatchVideoUrl, getScoringEvents, reviewScoringEvent, getScoreSummary } from '@/app/api'
 import type { ApiScoringEvent, Match } from '@/types/api'
 import { ScoringEvent } from '@/types/types'
 import { useParams } from "next/navigation";
@@ -217,6 +217,7 @@ const Page = () => {
 
   const matchTitle =
     `${match?.red_competitor ?? "Red"} vs ${match?.blue_competitor ?? "Blue"} • ${match?.ruleset_id.toUpperCase() ?? "RULESET"}`;
+  const videoUrl = match?.video_path ? getMatchVideoUrl(match.id) : null;
 
   if (isLoading) {
     return (
@@ -263,6 +264,7 @@ const Page = () => {
             selectedEventId={selectedEventId}
             onSelectEvent={(id) => setSelectedEventId(id)}
             scoringEvent={selectedEvent}
+            videoUrl={videoUrl}
           />
           <SelectedEventPanel 
             scoringEvent={selectedEvent}

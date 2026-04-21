@@ -4,6 +4,7 @@ from typing import Literal
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.video_analysis import analyze_match_video
@@ -62,6 +63,8 @@ class ScoringEventCreate(BaseModel):
     team: CompetitorSide
     points: int = Field(ge=0)
     timestamp: str = Field(pattern=r"^\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$")
+    replay_start_seconds: float = Field(ge=0)
+    replay_end_seconds: float = Field(ge=0)
     position: str = Field(min_length=1)
     confidence: float | None = Field(default=None, ge=0, le=1)
 
@@ -75,6 +78,8 @@ class ScoringEvent(BaseModel):
     team: CompetitorSide
     points: int = Field(ge=0)
     timestamp: str = Field(pattern=r"^\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$")
+    replay_start_seconds: float = Field(ge=0)
+    replay_end_seconds: float = Field(ge=0)
     position: str = Field(min_length=1)
     confidence: float | None = Field(default=None, ge=0, le=1)
     review_status: ReviewStatus = "pending"
@@ -230,6 +235,25 @@ def upload_match_video(match_id: int, video: UploadFile = File(...)):
     }
 
 
+@app.get("/matches/{match_id}/video")
+def get_match_video(match_id: int):
+    match = get_match_or_404(match_id)
+
+    if match.video_path is None:
+        raise HTTPException(status_code=404, detail="match video not found")
+
+    video_path = Path(match.video_path)
+    if not video_path.exists():
+        raise HTTPException(status_code=404, detail="match video file not found")
+
+    return FileResponse(
+        path=video_path,
+        media_type=match.video_content_type or "video/mp4",
+        filename=match.video_filename,
+        content_disposition_type="inline",
+    )
+
+
 
 @app.patch("/matches/{match_id}")
 def update_match(match_id: int, match_update: MatchUpdate):
@@ -343,6 +367,8 @@ def start_match_analysis(match_id: int):
             team=event.team,
             points=event.points,
             timestamp=event.timestamp,
+            replay_start_seconds=event.replay_start_seconds,
+            replay_end_seconds=event.replay_end_seconds,
             position=event.position,
             confidence=event.confidence,
         )

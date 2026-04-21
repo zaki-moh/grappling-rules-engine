@@ -1,4 +1,3 @@
-import Image from "next/image";
 import ScoringEventMarker from "./ScoringEventMarker";
 import { ScoringEvent } from "@/types/types";
 
@@ -6,10 +5,22 @@ type VideoReviewPanelProps = {
   scoringEvent: ScoringEvent | null;
   scoringEvents: Array<ScoringEvent>;
   selectedEventId: number | null;
+  videoUrl: string | null;
   onSelectEvent: (id: number) => void;
 }
 
-const VideoReviewPanel = ({ scoringEvent, scoringEvents, selectedEventId, onSelectEvent }: VideoReviewPanelProps) => {
+const VideoReviewPanel = ({
+  scoringEvent,
+  scoringEvents,
+  selectedEventId,
+  videoUrl,
+  onSelectEvent,
+}: VideoReviewPanelProps) => {
+  const replayVideoUrl =
+    videoUrl && scoringEvent
+      ? `${videoUrl}#t=${scoringEvent.replay_start_seconds},${scoringEvent.replay_end_seconds}`
+      : null;
+
   return (
     <div className="flex min-w-0 flex-[1.6] flex-col gap-4 rounded-3xl bg-white/90 p-4 shadow-xl ring-1 ring-black/10 backdrop-blur">
       <div className="flex items-center justify-between">
@@ -24,19 +35,23 @@ const VideoReviewPanel = ({ scoringEvent, scoringEvents, selectedEventId, onSele
       
       {/* Video */}
       <div className="relative aspect-video overflow-hidden rounded-2xl bg-slate-950 shadow-sm ring-1 ring-black/10">
-        <Image
-          src="/stock.jpg"
-          alt="Grappling match video placeholder"
-          fill
-          className="object-cover"
-          priority
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/10 to-transparent" />
-        <div className="absolute inset-x-0 top-0 flex h-1.5">
+        {videoUrl ? (
+          <video
+            src={videoUrl}
+            controls
+            className="h-full w-full object-contain"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center px-6 text-center text-sm text-slate-300">
+            Match footage will appear here after a video is uploaded.
+          </div>
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/10 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex h-1.5">
           <div className="flex-1 bg-rose-500/90" />
           <div className="flex-1 bg-blue-500/90" />
         </div>
-        <div className="absolute bottom-4 left-4 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white ring-1 ring-white/10">
+        <div className="pointer-events-none absolute bottom-4 left-4 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white ring-1 ring-white/10">
           Full Match View
         </div>
       </div>
@@ -48,13 +63,19 @@ const VideoReviewPanel = ({ scoringEvent, scoringEvents, selectedEventId, onSele
           <p className="font-mono text-xs text-slate-300">{scoringEvent?.replay_window}</p>
         </div>
         <div className="relative h-32 overflow-hidden rounded-xl">
-          <Image
-            src="/stock.jpg"
-            alt="Focused scoring event replay placeholder"
-            fill
-            className="object-cover opacity-85"
-          />
-          <div className="absolute inset-0 bg-black/30" />
+          {replayVideoUrl ? (
+            <video
+              key={replayVideoUrl}
+              src={replayVideoUrl}
+              controls
+              className="h-full w-full object-contain opacity-85"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs text-slate-300">
+              Select a scoring event to preview its replay window.
+            </div>
+          )}
+          <div className="pointer-events-none absolute inset-0 bg-black/30" />
         </div>
       </div>
 

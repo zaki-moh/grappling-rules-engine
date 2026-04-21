@@ -7,6 +7,8 @@ import numpy as np
 
 
 DetectedTeam = Literal["red", "blue"]
+PRE_CONTEXT_SECONDS = 2.0
+POST_CONTEXT_SECONDS = 2.0
 
 
 @dataclass(frozen=True)
@@ -304,11 +306,38 @@ def detect_candidate_actions(
 
     return candidate_actions
 
+ 
 
-def build_scoring_events_from_actions():
-    """Placeholder for converting detected actions into scoring events."""
+def build_scoring_events_from_actions(
+    candidate_actions: list[CandidateAction],
+    metadata: VideoMetadata,
+    pre_context_seconds: float = PRE_CONTEXT_SECONDS,
+    post_context_seconds: float = POST_CONTEXT_SECONDS,
+) -> list[DetectedScoringEvent]:
+    """Placeholder for converting detected actions into scoring events."""  
+    scoring_events = []
 
-    return []
+    for action in candidate_actions:
+        replay_start_seconds = max(0, action.start_seconds - pre_context_seconds)
+        replay_end_seconds = min(metadata.duration_seconds, action.end_seconds + post_context_seconds)
+        confidence = (
+            None
+            if action.confidence is None
+            else min(1.0, max(0.0, action.confidence / 255.0))
+        )
+
+        detected_event = DetectedScoringEvent(
+            event_type="Potential Scoring Action",
+            team="red",
+            points=0,
+            timestamp=format_seconds_as_timestamp(action.peak_seconds),
+            replay_start_seconds=replay_start_seconds,
+            replay_end_seconds=replay_end_seconds,
+            position=action.position,
+            confidence=confidence,
+        )
+        scoring_events.append(detected_event)
+    return scoring_events
 
 
 def analyze_match_video(video_path: Path) -> list[DetectedScoringEvent]:
@@ -329,5 +358,6 @@ def analyze_match_video(video_path: Path) -> list[DetectedScoringEvent]:
         frames=sampled_frames,
         output_dir=video_path.parent / "debug_frames",
     )
-
-    return build_mock_scoring_events(metadata)
+    candidate_actions = detect_candidate_actions(sampled_frames, metadata)
+    scoring_events = build_scoring_events_from_actions(candidate_actions, metadata)
+    return scoring_events
