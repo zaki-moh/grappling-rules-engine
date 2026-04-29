@@ -53,6 +53,7 @@ class CandidateAction:
     confidence: float | None = None
     position: str = "unknown"
     team: DetectedTeam | None = None
+    stabilized_after_event = bool
 
 
 def get_video_metadata(video_path: Path) -> VideoMetadata:
@@ -294,19 +295,23 @@ def detect_candidate_actions(
             peak_frame_index = start_index + peak_motion_index + 1
             peak_seconds = sampled_frames[peak_frame_index].timestamp_seconds
 
+            
+
             candidate_actions.append(
-                CandidateAction(
-                    action_type="high_motion",
-                    start_seconds=start_seconds,
-                    end_seconds=end_seconds,
-                    peak_seconds=peak_seconds,
-                    confidence=window_motion_score,
-                )
+                [sampled_frames[start_index], sampled_frames[start_index + window_size - 1]]
+                # CandidateAction(
+                #     action_type="high_motion",
+                #     start_seconds=start_seconds,
+                #     end_seconds=end_seconds,
+                #     peak_seconds=peak_seconds,
+                #     confidence=window_motion_score,
+                # )
             )
 
     return candidate_actions
 
- 
+ def detect_stabalized_effect(time_windows: list[[]]) -> list[bool]:
+    # TODO
 
 def build_scoring_events_from_actions(
     candidate_actions: list[CandidateAction],
