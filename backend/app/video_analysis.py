@@ -44,6 +44,26 @@ class DetectedScoringEvent:
     position: str
     confidence: float | None = None
 
+
+@dataclass(frozen=True)
+class CandidateWindow:
+    start_index: int
+    end_index: int
+    peak_index: int
+    start_seconds: float
+    end_seconds: float
+    peak_seconds: float
+    motion_score: float
+
+
+@dataclass(frozen=True)
+class StabilityCheck:
+    is_stable: bool
+    motion_score: float
+    window_start_seconds: float
+    window_end_seconds: float
+
+
 @dataclass(frozen=True)
 class CandidateAction:
     action_type: str
@@ -51,9 +71,14 @@ class CandidateAction:
     end_seconds: float
     peak_seconds: float
     confidence: float | None = None
-    position: str = "unknown"
+    position_before: str | None = None
+    position_after: str | None = None
+    top_team_before: DetectedTeam | None = None
+    top_team_after: DetectedTeam | None = None
+    stability_before: StabilityCheck | None = None
+    stability_after: StabilityCheck | None = None
     team: DetectedTeam | None = None
-    stabilized_after_event = bool
+   
 
 
 def get_video_metadata(video_path: Path) -> VideoMetadata:
@@ -93,7 +118,7 @@ def get_video_metadata(video_path: Path) -> VideoMetadata:
 def sample_video_frames(
     video_path: Path,
     metadata: VideoMetadata,
-    sample_every_seconds: float = 1.0,
+    sample_every_seconds: float = 0.5,
 ) -> list[SampledFrame]:
     """Sample timestamped frames from a video at a fixed time interval."""
 
@@ -255,7 +280,7 @@ def detect_candidate_actions(
     metadata: VideoMetadata,
     window_size: int = 5,
     motion_threshold: float = 15.0,
-) -> list[CandidateAction]:
+) -> list[CandidateWindow]:
     """Detect high-motion windows that may contain score-relevant actions."""
 
     if window_size < 2:
@@ -265,7 +290,7 @@ def detect_candidate_actions(
     if len(sampled_frames) < window_size:
         return []
 
-    candidate_actions: list[CandidateAction] = []
+    candidate_windows: list[CandidateWindow] = []
     gray_frames: list[np.ndarray] = []
 
     for frame in sampled_frames:
@@ -297,52 +322,38 @@ def detect_candidate_actions(
 
             
 
-            candidate_actions.append(
-                [sampled_frames[start_index], sampled_frames[start_index + window_size - 1]]
-                # CandidateAction(
-                #     action_type="high_motion",
-                #     start_seconds=start_seconds,
-                #     end_seconds=end_seconds,
-                #     peak_seconds=peak_seconds,
-                #     confidence=window_motion_score,
-                # )
+            candidate_windows.append(
+                CandidateWindow(
+                    start_index=start_index,
+                    end_index=start_index + window_size - 1,
+                    peak_index=peak_frame_index,
+                    start_seconds=start_seconds,
+                    end_seconds=end_seconds,
+                    peak_seconds=peak_seconds,
+                    motion_score=window_motion_score,
+                )
             )
 
-    return candidate_actions
+    return candidate_windows
 
- def detect_stabalized_effect(time_windows: list[[]]) -> list[bool]:
-    # TODO
 
-def build_scoring_events_from_actions(
-    candidate_actions: list[CandidateAction],
-    metadata: VideoMetadata,
-    pre_context_seconds: float = PRE_CONTEXT_SECONDS,
-    post_context_seconds: float = POST_CONTEXT_SECONDS,
-) -> list[DetectedScoringEvent]:
-    """Placeholder for converting detected actions into scoring events."""  
-    scoring_events = []
+def detect_stabalized_effect(time_windows: list[[]]) -> list[bool]:
+    pass
 
-    for action in candidate_actions:
-        replay_start_seconds = max(0, action.start_seconds - pre_context_seconds)
-        replay_end_seconds = min(metadata.duration_seconds, action.end_seconds + post_context_seconds)
-        confidence = (
-            None
-            if action.confidence is None
-            else min(1.0, max(0.0, action.confidence / 255.0))
-        )
 
-        detected_event = DetectedScoringEvent(
-            event_type="Potential Scoring Action",
-            team="red",
-            points=0,
-            timestamp=format_seconds_as_timestamp(action.peak_seconds),
-            replay_start_seconds=replay_start_seconds,
-            replay_end_seconds=replay_end_seconds,
-            position=action.position,
-            confidence=confidence,
-        )
-        scoring_events.append(detected_event)
-    return scoring_events
+# def build_candidate_actions(
+#     candidate_windows: List[CandidateWindow],
+#     stabalized_windows: List[StabilityCheck],
+#     metadata: VideoMetadata
+# ) -> List[CandidateAction]
+#     # TODO
+
+# def build_scoring_events_from_actions(
+#     candidate_actions: list[CandidateAction],
+#     metadata: VideoMetadata,
+# ) -> list[ScoringEvents]:
+#     """Placeholder for converting detected actions into scoring events."""  
+#     pass
 
 
 def analyze_match_video(video_path: Path) -> list[DetectedScoringEvent]:
