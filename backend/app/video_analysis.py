@@ -7,8 +7,8 @@ import numpy as np
 
 
 DetectedTeam = Literal["red", "blue"]
-PRE_CONTEXT_SECONDS = 2.0
-POST_CONTEXT_SECONDS = 2.0
+PRE_CONTEXT_SECONDS = 3.0
+POST_CONTEXT_SECONDS = 3.0
 
 
 @dataclass(frozen=True)
@@ -62,6 +62,11 @@ class StabilityCheck:
     motion_score: float
     window_start_seconds: float
     window_end_seconds: float
+
+@dataclass(frozen=True)
+class WindowStability:
+    before: StabilityCheck | None
+    after: StabilityCheck | None
 
 
 @dataclass(frozen=True)
@@ -337,8 +342,99 @@ def detect_candidate_actions(
     return candidate_windows
 
 
-def detect_stabalized_effect(time_windows: list[[]]) -> list[bool]:
-    pass
+def detect_stabalized_effect(
+    time_windows: list[CandidateWindow], 
+    sampled_frames: list[SampledFrame]
+    ) -> list[WindowStability]:
+
+    window_stability_checks: list[WindowStability] = []
+
+    for window in time_windows:
+        target_start_seconds = window.start_seconds - 3.0
+        cur_idx = window.start_index - 1
+        prev_gray = cv2.cvtColor(sampled_frames[window.start_index].image, cv2.COLOR_BGR2GRAY)
+        start_window_motion_scores: list[float] = []
+        
+        before_stability_check: StabilityCheck | None = None
+
+        while cur_idx >= 0:
+            cur_frame = sampled_frames[cur_idx]
+            if cur_frame.timestamp_seconds < target_start_seconds:
+                break
+
+            cur_gray = cv2.cvtColor(cur_frame.image, cv2.COLOR_BGR2GRAY)
+            frame_diff = cv2.absdiff(prev_gray, cur_gray)
+            start_window_motion_scores.append(float(np.mean(frame_diff)))
+
+            prev_gray = cur_gray
+            cur_idx -= 1
+
+
+        if start_window_motion_scores:
+            avg_motion = sum(start_window_motion_scores) / len(start_window_motion_scores)
+            target_start_seconds = max(
+                sampled_frames[0].timestamp_seconds,
+                window.start_seconds - 3.0,
+            )   
+
+            stability_threshold = min(7.5, window.motion_score * 0.5)
+
+           
+            before_stability_check = StabilityCheck(
+                is_stable=avg_motion < stability_threshold,
+                motion_score=avg_motion,
+                window_start_seconds=target_start_seconds,
+                window_end_seconds=window.start_seconds,
+            )
+            
+
+
+        target_end_seconds = window.end_seconds + 3.0
+        cur_idx = window.end_index + 1
+        prev_gray = cv2.cvtColor(sampled_frames[window.end_index].image, cv2.COLOR_BGR2GRAY)
+        end_window_motion_scores: list[float] = []
+
+        after_stability_check: StabilityCheck | None = None
+
+        while cur_idx < len(sampled_frames):
+            cur_frame = sampled_frames[cur_idx]
+            if cur_frame.timestamp_seconds > target_end_seconds:
+                break
+
+            cur_gray = cv2.cvtColor(cur_frame.image, cv2.COLOR_BGR2GRAY)
+            frame_diff = cv2.absdiff(prev_gray, cur_gray)
+            end_window_motion_scores.append(float(np.mean(frame_diff)))
+
+            prev_gray = cur_gray
+            cur_idx += 1
+
+        
+        if end_window_motion_scores:
+            avg_motion = sum(end_window_motion_scores) / len(end_window_motion_scores)
+            target_end_seconds = min(
+                sampled_frames[-1].timestamp_seconds,
+                window.end_seconds + 3.0,
+            )
+
+            stability_threshold = min(7.5, window.motion_score * 0.5)
+
+            
+            after_stability_check = StabilityCheck(
+                is_stable=avg_motion < stability_threshold,
+                motion_score=avg_motion,
+                window_start_seconds=window.end_seconds,
+                window_end_seconds=target_end_seconds,
+            )
+            
+        window_stability_checks.append(
+            WindowStability(
+                before=before_stability_check,
+                after=after_stability_check
+            )
+        )
+
+    return window_stability_checks
+
 
 
 # def build_candidate_actions(
