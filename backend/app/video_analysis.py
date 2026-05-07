@@ -437,12 +437,84 @@ def detect_stabalized_effect(
 
 
 
-# def build_candidate_actions(
-#     candidate_windows: List[CandidateWindow],
-#     stabalized_windows: List[StabilityCheck],
-#     metadata: VideoMetadata
-# ) -> List[CandidateAction]
-#     # TODO
+def build_candidate_actions(
+    candidate_windows: list[CandidateWindow],
+    window_stabilities: list[WindowStability],
+) -> list[CandidateAction]:
+
+    if len(candidate_windows) != len(window_stabilities):
+        raise ValueError(
+            "candidate_windows and window_stabilities must have the same length"
+        )
+
+    candidate_actions: list[CandidateAction] = []
+
+    for i in range(len(candidate_windows)):     
+        cur_window = candidate_windows[i]
+        cur_window_stability = window_stabilities[i]
+
+        if i == 0 and cur_window_stability.after and cur_window_stability.after.is_stable:
+            candidate_actions.append( 
+                    CandidateAction(
+                        action_type="Unknown",
+                        start_seconds=cur_window.start_seconds,
+                        end_seconds=cur_window.end_seconds,
+                        peak_seconds=cur_window.peak_seconds,
+                        confidence=None,
+                        position_before=None,
+                        position_after=None,
+                        top_team_before=None,
+                        top_team_after=None,
+                        stability_before=None,
+                        stability_after=cur_window_stability.after,
+                        team=None
+                    )
+                )
+            continue
+        
+        if (i == len(candidate_windows) - 1) and cur_window_stability.before and cur_window_stability.before.is_stable:
+            candidate_actions.append( 
+                    CandidateAction(
+                        action_type="Unknown",
+                        start_seconds=cur_window.start_seconds,
+                        end_seconds=cur_window.end_seconds,
+                        peak_seconds=cur_window.peak_seconds,
+                        confidence=None,
+                        position_before=None,
+                        position_after=None,
+                        top_team_before=None,
+                        top_team_after=None,
+                        stability_before=cur_window_stability.before,
+                        stability_after=None,
+                        team=None
+                    )
+                )
+            continue
+
+        if cur_window_stability.before and cur_window_stability.after:
+            if cur_window_stability.before.is_stable and cur_window_stability.after.is_stable:
+                candidate_actions.append( 
+                    CandidateAction(
+                        action_type="Unknown",
+                        start_seconds=cur_window.start_seconds,
+                        end_seconds=cur_window.end_seconds,
+                        peak_seconds=cur_window.peak_seconds,
+                        confidence=None,
+                        position_before=None,
+                        position_after=None,
+                        top_team_before=None,
+                        top_team_after=None,
+                        stability_before=cur_window_stability.before,
+                        stability_after=cur_window_stability.after,
+                        team=None
+                    )
+                )
+
+
+    return candidate_actions
+    
+
+
 
 # def build_scoring_events_from_actions(
 #     candidate_actions: list[CandidateAction],
