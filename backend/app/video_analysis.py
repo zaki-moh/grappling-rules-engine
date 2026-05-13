@@ -83,6 +83,19 @@ class CandidateAction:
     stability_before: StabilityCheck | None = None
     stability_after: StabilityCheck | None = None
     team: DetectedTeam | None = None
+
+@dataclass(frozen=True)
+class AnalyzedAction:
+    candidate_action: CandidateAction
+    position_before: str | None = None
+    position_after: str | None = None
+    top_team_before: DetectedTeam | None = None
+    top_team_after: DetectedTeam | None = None
+    transition_type: str | None = None
+    transition_confidence: float | None = None
+    event_team: DetectedTeam | None = None
+    event_seconds: float | None = None
+
    
 
 
@@ -513,6 +526,41 @@ def build_candidate_actions(
 
     return candidate_actions
     
+
+def analyze_candidate_actions(
+    candidate_actions: list[CandidateAction],
+    sampled_frames: list[SampledFrame]
+) -> list[AnalyzedAction]:
+
+    analyzed_action = []
+    for action in candidate_actions:
+        frames_for_action_start = [
+            frame 
+            for frame in sampled_frames 
+            if action.stability_before and
+            action.stability_before.window_start_seconds <= frame.timestamp_seconds <= action.stability_before.window_end_seconds
+        ]
+        frames_for_action_end = [
+            frame 
+            for frame in sampled_frames
+            if action.stability_after and
+            action.stability_after.window_start_seconds <= frame.timestamp_seconds <= action.stability_after.window_end_seconds
+        ]
+
+        before_snapshot = max(
+            frames_for_action_start,
+            key= lambda frame: frame.timestamp_seconds,
+            default=None,
+        )
+        after_snapshot = min(
+            frames_for_action_end,
+            key= lambda frame: frame.timestamp_seconds,
+            default=None,
+        )
+
+
+
+    return analyzed_action
 
 
 
