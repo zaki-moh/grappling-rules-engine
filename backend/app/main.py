@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from app.video_analysis import analyze_match_video
+from app.pipeline import analyze_match_video
 
 RulesetType = Literal["system", "custom"]
 MatchStatus = Literal["created", "processing", "ready_for_review", "completed"]
