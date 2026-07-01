@@ -1,7 +1,12 @@
-import type { CompetitorSide, ReviewStatus } from "@/types/types";
+import type {
+  CompetitorSide,
+  EventType,
+  Position,
+  ReviewStatus,
+} from "@/types/types";
 
 export type RulesetType = "system" | "custom";
-export type MatchStatus = "created" | "processing" | "ready_for_review" | "completed";
+export type MatchStatus = "created" | "processing" | "analyzed" | "failed";
 
 export type Ruleset = {
   id: string;
@@ -12,7 +17,7 @@ export type Ruleset = {
 
 export type Match = {
   id: number;
-  ruleset_id: string;
+  ruleset_id: string | null;
   red_competitor: string | null;
   blue_competitor: string | null;
   status: MatchStatus;
@@ -23,7 +28,7 @@ export type Match = {
 };
 
 export type MatchCreateRequest = {
-  ruleset_id: string;
+  ruleset_id?: string | null;
   red_competitor?: string | null;
   blue_competitor?: string | null;
 };
@@ -35,36 +40,74 @@ export type MatchUpdateRequest = {
   status?: MatchStatus;
 };
 
-export type ScoringEventCreateRequest = {
+export type ApiPositionSegment = {
+  id: number;
   match_id: number;
-  event_type: string;
-  team: CompetitorSide;
-  points: number;
-  timestamp: string;
-  replay_start_seconds: number;
-  replay_end_seconds: number;
-  position: string;
-  confidence?: number | null;
+  position: Position;
+  start_seconds: number;
+  end_seconds: number;
+  top_athlete: CompetitorSide | null;
+  confidence: number | null;
+  review_status: ReviewStatus;
+  corrected_position: Position | null;
+  corrected_top_athlete: CompetitorSide | null;
+  review_note: string | null;
 };
 
-export type ScoringEventReviewRequest = {
+export type ApiMatchEvent = {
+  id: number;
+  match_id: number;
+  event_type: EventType;
+  timestamp_seconds: number;
+  timestamp: string;
+  athlete: CompetitorSide | null;
+  from_position: Position | null;
+  to_position: Position | null;
+  confidence: number | null;
+  replay_start_seconds: number;
+  replay_end_seconds: number;
   review_status: ReviewStatus;
+  corrected_event_type: EventType | null;
+  corrected_athlete: CompetitorSide | null;
+  review_note: string | null;
+};
+
+export type AthleteAnalytics = {
+  guard_passes: number;
+  sweeps: number;
+  back_takes: number;
+  submission_attempts: number;
+  escapes: number;
+  control_time_seconds: number;
+};
+
+export type Transition = {
+  timestamp_seconds: number;
+  from_position: Position;
+  to_position: Position;
+  top_athlete: CompetitorSide | null;
+};
+
+export type AnalyticsSummary = {
+  red: AthleteAnalytics;
+  blue: AthleteAnalytics;
+  time_in_position: Record<string, number>;
+  major_transitions: Transition[];
+  estimated_points: { red: number; blue: number } | null;
+};
+
+export type SegmentReviewRequest = {
+  review_status: ReviewStatus;
+  corrected_position?: Position | null;
+  corrected_top_athlete?: CompetitorSide | null;
   review_note?: string | null;
 };
 
-export type ApiScoringEvent = {
-  id: number;
-  match_id: number;
-  event_type: string;
-  team: CompetitorSide;
-  points: number;
-  timestamp: string;
-  replay_start_seconds: number;
-  replay_end_seconds: number;
-  position: string;
-  confidence: number | null;
+export type EventReviewRequest = {
   review_status: ReviewStatus;
-  review_note: string | null;
+  corrected_event_type?: EventType | null;
+  corrected_athlete?: CompetitorSide | null;
+  review_note?: string | null;
 };
 
 export type RulesetsResponse = {
@@ -101,34 +144,33 @@ export type UploadMatchVideoResponse = {
 export type StartMatchAnalysisResponse = {
   message: string;
   match: Match;
-  created_scoring_events: number;
+  created_segments: number;
+  created_events: number;
 };
 
-export type ScoringEventsResponse = {
+export type PositionTimelineResponse = {
   match_id: number;
-  scoring_events: ApiScoringEvent[];
+  position_segments: ApiPositionSegment[];
 };
 
-export type CreateScoringEventResponse = {
-  message: string;
-  event: ApiScoringEvent;
-};
-
-export type ReviewScoringEventResponse = {
-  message: string;
-  event: ApiScoringEvent;
-};
-
-export type ScoreSummaryResponse = {
+export type EventsResponse = {
   match_id: number;
-  proposed_score_summary: {
-    red: number;
-    blue: number;
-  };
-  confirmed_score_summary: {
-    red: number;
-    blue: number;
-  };
+  events: ApiMatchEvent[];
+};
+
+export type AnalyticsResponse = {
+  match_id: number;
+  analytics: AnalyticsSummary;
+};
+
+export type ReviewSegmentResponse = {
+  message: string;
+  segment: ApiPositionSegment;
+};
+
+export type ReviewEventResponse = {
+  message: string;
+  event: ApiMatchEvent;
 };
 
 export type HealthCheckResponse = {

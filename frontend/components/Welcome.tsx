@@ -22,16 +22,16 @@ const Welcome = () => {
           <div className="max-w-3xl">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-slate-950 px-3 py-2 text-xs font-medium text-white shadow-sm">
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              Reviewable scoring desk for grappling footage
+              Automated breakdowns for grappling footage
             </div>
 
             <h1 className="max-w-4xl text-5xl font-semibold tracking-tight text-slate-950 sm:text-6xl lg:text-7xl">
-              Score grappling footage with confidence.
+              Turn grappling footage into a match breakdown.
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-              Choose a ruleset, analyze match footage, and review every
-              detected scoring event before the score becomes final.
+              Upload a single-angle match and get a timestamped position
+              timeline, detected events, and analytics you can review and correct.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -60,9 +60,9 @@ const Welcome = () => {
             <div className="relative flex h-full min-h-[31rem] flex-col">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-white">Tournament Engine</p>
+                  <p className="text-sm font-medium text-white">Match Analytics</p>
                   <p className="mt-1 text-xs text-slate-400">
-                    Rules-aware scoring review
+                    Position-aware breakdown
                   </p>
                 </div>
                 <div className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200 ring-1 ring-white/10">
@@ -100,9 +100,9 @@ const Welcome = () => {
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/10">
                   <p className="text-xs uppercase tracking-wide text-slate-400">
-                    Proposed
+                    Control
                   </p>
-                  <p className="mt-2 text-2xl font-semibold">7 - 4</p>
+                  <p className="mt-2 text-2xl font-semibold">3:48</p>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/10">
                   <p className="text-xs uppercase tracking-wide text-slate-400">
@@ -114,7 +114,7 @@ const Welcome = () => {
                   <p className="text-xs uppercase tracking-wide text-slate-400">
                     Status
                   </p>
-                  <p className="mt-2 text-2xl font-semibold">Review</p>
+                  <p className="mt-2 text-2xl font-semibold">Ready</p>
                 </div>
               </div>
             </div>
@@ -123,9 +123,9 @@ const Welcome = () => {
 
         <section className="grid gap-4 pb-8 md:grid-cols-3">
           {[
-            ["01", "Create Match", "Pick a ruleset and name the competitors before analysis starts."],
-            ["02", "Run Analysis", "Use the pipeline to generate proposed scoring events from footage."],
-            ["03", "Review Score", "Accept, reject, reset, and annotate events before confirming the score."],
+            ["01", "Create Match", "Name the competitors and attach footage; a ruleset is optional."],
+            ["02", "Run Analysis", "Generate a position timeline and detected events from the footage."],
+            ["03", "Review & Correct", "Confirm or correct events and positions, then read the analytics."],
           ].map(([step, title, description]) => (
             <article
               key={step}

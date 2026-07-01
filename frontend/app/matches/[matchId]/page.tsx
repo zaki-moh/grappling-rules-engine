@@ -1,293 +1,288 @@
 'use client'
-import SelectedEventPanel from '@/components/SelectedEventPanel'
+import AnalyticsPanel from '@/components/AnalyticsPanel'
+import SelectedItemPanel from '@/components/SelectedItemPanel'
 import VideoReviewPanel from '@/components/VideoReviewPanel'
-import { getMatch, getMatchVideoUrl, getScoringEvents, reviewScoringEvent, getScoreSummary } from '@/app/api'
-import type { ApiScoringEvent, Match } from '@/types/api'
-import { ScoringEvent } from '@/types/types'
-import { useParams } from "next/navigation";
+import {
+  getAnalytics,
+  getMatch,
+  getMatchEvents,
+  getMatchVideoUrl,
+  getPositionTimeline,
+  reviewEvent,
+  reviewSegment,
+} from '@/app/api'
+import { buildEventDescription, eventLabel, formatClock, positionLabel } from '@/lib/display'
+import type {
+  AnalyticsSummary,
+  ApiMatchEvent,
+  ApiPositionSegment,
+  EventReviewRequest,
+  Match,
+  SegmentReviewRequest,
+} from '@/types/api'
+import type { DisplayEvent, DisplaySegment, SelectedItem } from '@/types/types'
+import { useParams } from 'next/navigation'
 import React from 'react'
 
-const parseTimestampToSeconds = (timestamp: string) => {
-  const [hours, minutes, secondsWithFraction] = timestamp.split(":");
-  const seconds = Number(secondsWithFraction);
+const timelineDuration = (
+  segments: ApiPositionSegment[],
+  events: ApiMatchEvent[],
+): number => {
+  const segmentEnd = segments.reduce((max, segment) => Math.max(max, segment.end_seconds), 0)
+  const eventEnd = events.reduce((max, event) => Math.max(max, event.timestamp_seconds), 0)
+  return Math.max(segmentEnd, eventEnd, 1)
+}
 
-  return (
-    Number(hours) * 60 * 60
-    + Number(minutes) * 60
-    + seconds
-  );
-};
+const mapSegments = (
+  segments: ApiPositionSegment[],
+  duration: number,
+): DisplaySegment[] =>
+  segments.map((segment) => ({
+    id: segment.id,
+    position: segment.position,
+    start_seconds: segment.start_seconds,
+    end_seconds: segment.end_seconds,
+    top_athlete: segment.top_athlete,
+    confidence: segment.confidence ?? 0,
+    review_status: segment.review_status,
+    review_note: segment.review_note ?? '',
+    startPercent: (segment.start_seconds / duration) * 100,
+    widthPercent: Math.max(0.5, ((segment.end_seconds - segment.start_seconds) / duration) * 100),
+    label: positionLabel(segment.position),
+    timeRange: `${formatClock(segment.start_seconds)} - ${formatClock(segment.end_seconds)}`,
+  }))
 
-const formatSecondsAsTimestamp = (seconds: number) => {
-  const clampedSeconds = Math.max(0, Math.floor(seconds));
-  const hours = String(Math.floor(clampedSeconds / 3600)).padStart(2, "0");
-  const minutes = String(Math.floor((clampedSeconds % 3600) / 60)).padStart(2, "0");
-  const remainingSeconds = String(clampedSeconds % 60).padStart(2, "0");
-
-  return `${hours}:${minutes}:${remainingSeconds}`;
-};
-
-const buildReplayWindow = (replayStartSeconds: number, replayEndSeconds: number) => {
-  const replayStart = formatSecondsAsTimestamp(replayStartSeconds);
-  const replayEnd = formatSecondsAsTimestamp(replayEndSeconds);
-
-  return `${replayStart} - ${replayEnd}`;
-};
-
-const buildEventDescription = (event: ApiScoringEvent) => {
-  const displayTeam = event.team.charAt(0).toUpperCase() + event.team.slice(1);
-
-  return `${displayTeam} is credited with ${event.event_type.toLowerCase()} leading into ${event.position.toLowerCase()}.`;
-};
-
-// The backend returns storage-friendly scoring events. The review page needs a
-// couple of extra presentation fields as well, so we derive them once here
-// instead of scattering that transformation across the UI.
-const mapScoringEventsForReview = (events: ApiScoringEvent[]): ScoringEvent[] => {
-  const timestampUpperBound = Math.max(
-    ...events.map((event) => parseTimestampToSeconds(event.timestamp)),
-    1,
-  );
-
-  return events.map((event) => ({
+const mapEvents = (events: ApiMatchEvent[], duration: number): DisplayEvent[] =>
+  events.map((event) => ({
     id: event.id,
-    // Spread markers across the timeline using the event timestamp so the UI
-    // has a stable relative position even before we have true video metadata.
-    percent: 5 + (parseTimestampToSeconds(event.timestamp) / timestampUpperBound) * 90,
     event_type: event.event_type,
-    description: buildEventDescription(event),
-    team: event.team,
-    points: event.points,
-    position: event.position,
-    confidence: event.confidence ?? 0,
+    timestamp_seconds: event.timestamp_seconds,
     timestamp: event.timestamp,
+    athlete: event.athlete,
+    from_position: event.from_position,
+    to_position: event.to_position,
+    confidence: event.confidence ?? 0,
     replay_start_seconds: event.replay_start_seconds,
     replay_end_seconds: event.replay_end_seconds,
-    replay_window: buildReplayWindow(
-      event.replay_start_seconds,
-      event.replay_end_seconds,
-    ),
     review_status: event.review_status,
-    review_note: event.review_note ?? "",
-  }));
-};
+    review_note: event.review_note ?? '',
+    percent: Math.min(100, Math.max(0, (event.timestamp_seconds / duration) * 100)),
+    label: eventLabel(event.event_type),
+    description: buildEventDescription(event),
+    replay_window: `${formatClock(event.replay_start_seconds)} - ${formatClock(event.replay_end_seconds)}`,
+  }))
 
-const fetchReviewWorkspaceData = async (matchId: number) => {
-  const [matchResponse, scoringEventsResponse, scoreSummaryResponse] = await Promise.all([
+type WorkspaceData = {
+  match: Match
+  segments: DisplaySegment[]
+  events: DisplayEvent[]
+  analytics: AnalyticsSummary
+}
+
+const fetchWorkspaceData = async (matchId: number): Promise<WorkspaceData> => {
+  const [matchResponse, timelineResponse, eventsResponse, analyticsResponse] = await Promise.all([
     getMatch(matchId),
-    getScoringEvents(matchId),
-    getScoreSummary(matchId),
-  ]);
+    getPositionTimeline(matchId),
+    getMatchEvents(matchId),
+    getAnalytics(matchId),
+  ])
+
+  const duration = timelineDuration(
+    timelineResponse.position_segments,
+    eventsResponse.events,
+  )
 
   return {
     match: matchResponse.match,
-    scoringEvents: mapScoringEventsForReview(scoringEventsResponse.scoring_events),
-    scoreSummary: scoreSummaryResponse,
-  };
-
-};
+    segments: mapSegments(timelineResponse.position_segments, duration),
+    events: mapEvents(eventsResponse.events, duration),
+    analytics: analyticsResponse.analytics,
+  }
+}
 
 const Page = () => {
-  const params = useParams<{ matchId: string }>();
-  const rawMatchId = typeof params.matchId === "string" ? params.matchId : undefined;
-  const matchId = Number(rawMatchId);
-  const isValidMatchId = Number.isInteger(matchId) && matchId > 0;
-  const [match, setMatch] = React.useState<Match | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [isSavingReview, setIsSavingReview] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [reviewError, setReviewError] = React.useState<string | null>(null);
-  const [scoringEvents, setScoringEvents] = React.useState<ScoringEvent[]>([]);
-  const [selectedEventId, setSelectedEventId] = React.useState<number | null>(null);
-  const [redScore, setRedScore] = React.useState(0);
-  const [blueScore, setBlueScore] = React.useState(0);
+  const params = useParams<{ matchId: string }>()
+  const rawMatchId = typeof params.matchId === 'string' ? params.matchId : undefined
+  const matchId = Number(rawMatchId)
+  const isValidMatchId = Number.isInteger(matchId) && matchId > 0
 
-  // This effect is the bridge between the route and the backend:
-  // whenever the URL changes to a different /matches/[matchId] page, we
-  // fetch that specific match and hydrate the review UI with its events.
+  const [match, setMatch] = React.useState<Match | null>(null)
+  const [segments, setSegments] = React.useState<DisplaySegment[]>([])
+  const [events, setEvents] = React.useState<DisplayEvent[]>([])
+  const [analytics, setAnalytics] = React.useState<AnalyticsSummary | null>(null)
+  const [selected, setSelected] = React.useState<SelectedItem | null>(null)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [reviewError, setReviewError] = React.useState<string | null>(null)
+
   React.useEffect(() => {
     if (!isValidMatchId) {
-      setMatch(null);
-      setScoringEvents([]);
-      setSelectedEventId(null);
-      setError("The match ID in the URL is invalid.");
-      setIsLoading(false);
-      return;
+      setError('The match ID in the URL is invalid.')
+      setIsLoading(false)
+      return
     }
 
-    let isActive = true;
+    let isActive = true
 
-    const loadMatchReviewData = async () => {
-      setIsLoading(true);
-      setError(null);
-
+    const load = async () => {
+      setIsLoading(true)
+      setError(null)
       try {
-        const reviewWorkspaceData = await fetchReviewWorkspaceData(matchId);
+        const data = await fetchWorkspaceData(matchId)
+        if (!isActive) return
 
-        if (!isActive) {
-          return;
-        }
-
-        setMatch(reviewWorkspaceData.match);
-        setScoringEvents(reviewWorkspaceData.scoringEvents);
-        setSelectedEventId(reviewWorkspaceData.scoringEvents[0]?.id ?? null);
-        setRedScore(reviewWorkspaceData.scoreSummary.confirmed_score_summary.red);
-        setBlueScore(reviewWorkspaceData.scoreSummary.confirmed_score_summary.blue);
-      } catch (error) {
-        if (!isActive) {
-          return;
-        }
-
-        setMatch(null);
-        setScoringEvents([]);
-        setSelectedEventId(null);
+        setMatch(data.match)
+        setSegments(data.segments)
+        setEvents(data.events)
+        setAnalytics(data.analytics)
+        setSelected(
+          data.events[0]
+            ? { kind: 'event', id: data.events[0].id }
+            : data.segments[0]
+              ? { kind: 'segment', id: data.segments[0].id }
+              : null,
+        )
+      } catch (loadError) {
+        if (!isActive) return
+        setMatch(null)
+        setSegments([])
+        setEvents([])
+        setAnalytics(null)
         setError(
-          error instanceof Error
-            ? error.message
-            : "Failed to load the match review data.",
-        );
+          loadError instanceof Error ? loadError.message : 'Failed to load the match report.',
+        )
       } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
+        if (isActive) setIsLoading(false)
       }
-    };
+    }
 
-    loadMatchReviewData();
-
+    load()
     return () => {
-      isActive = false;
-    };
-  }, [isValidMatchId, matchId]);
+      isActive = false
+    }
+  }, [isValidMatchId, matchId])
 
+  const refreshAfterReview = async () => {
+    const data = await fetchWorkspaceData(matchId)
+    setMatch(data.match)
+    setSegments(data.segments)
+    setEvents(data.events)
+    setAnalytics(data.analytics)
+  }
 
   const selectedEvent =
-    scoringEvents.find((event) => event.id === selectedEventId) ?? null;
+    selected?.kind === 'event'
+      ? events.find((event) => event.id === selected.id) ?? null
+      : null
+  const selectedSegment =
+    selected?.kind === 'segment'
+      ? segments.find((segment) => segment.id === selected.id) ?? null
+      : null
 
-  const handleReviewDecision = async (
-    eventId: number,
-    review_status: ScoringEvent["review_status"],
-  ) => {
-    const eventToPersist = scoringEvents.find((event) => event.id === eventId);
-
-    if (!eventToPersist || isSavingReview) {
-      return;
-    }
-
+  const handleEventReview = async (payload: EventReviewRequest) => {
+    if (!selectedEvent || isSaving) return
     try {
-      setIsSavingReview(true);
-      setReviewError(null);
-
-      await reviewScoringEvent(matchId, eventId, {
-        review_status,
-        review_note: eventToPersist.review_note || null,
-      });
-      
-      const reviewWorkspaceData = await fetchReviewWorkspaceData(matchId);
-
-      setMatch(reviewWorkspaceData.match);
-      setScoringEvents(reviewWorkspaceData.scoringEvents);
-      setSelectedEventId((currentSelectedEventId) =>
-        reviewWorkspaceData.scoringEvents.some(
-          (event) => event.id === currentSelectedEventId,
-        )
-          ? currentSelectedEventId
-          : reviewWorkspaceData.scoringEvents[0]?.id ?? null,
-      );
-      setRedScore(reviewWorkspaceData.scoreSummary.confirmed_score_summary.red);
-      setBlueScore(reviewWorkspaceData.scoreSummary.confirmed_score_summary.blue);
-    } catch (error) {
+      setIsSaving(true)
+      setReviewError(null)
+      await reviewEvent(matchId, selectedEvent.id, payload)
+      await refreshAfterReview()
+    } catch (saveError) {
       setReviewError(
-        error instanceof Error
-          ? error.message
-          : "Failed to save the review decision.",
-      );
-    } finally {
-      setIsSavingReview(false);
-    }
-  };
-
-  const handleReviewNoteChange = (eventId: number, review_note: string) => {
-    setScoringEvents((prev) =>
-      prev.map((event) =>
-        event.id === eventId ? { ...event, review_note } : event
+        saveError instanceof Error ? saveError.message : 'Failed to save the review.',
       )
-    );
-  };
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
-  const matchTitle =
-    `${match?.red_competitor ?? "Red"} vs ${match?.blue_competitor ?? "Blue"} • ${match?.ruleset_id.toUpperCase() ?? "RULESET"}`;
-  const videoUrl = match?.video_path ? getMatchVideoUrl(match.id) : null;
+  const handleSegmentReview = async (payload: SegmentReviewRequest) => {
+    if (!selectedSegment || isSaving) return
+    try {
+      setIsSaving(true)
+      setReviewError(null)
+      await reviewSegment(matchId, selectedSegment.id, payload)
+      await refreshAfterReview()
+    } catch (saveError) {
+      setReviewError(
+        saveError instanceof Error ? saveError.message : 'Failed to save the review.',
+      )
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const redName = match?.red_competitor ?? 'Red'
+  const blueName = match?.blue_competitor ?? 'Blue'
+  const matchTitle = `${redName} vs ${blueName}${match?.ruleset_id ? ` • ${match.ruleset_id.toUpperCase()}` : ''}`
+  const videoUrl = match?.video_path ? getMatchVideoUrl(match.id) : null
+
+  const replay = selectedEvent
+    ? {
+        start: selectedEvent.replay_start_seconds,
+        end: selectedEvent.replay_end_seconds,
+        label: selectedEvent.replay_window,
+        timestamp: selectedEvent.timestamp,
+      }
+    : selectedSegment
+      ? {
+          start: selectedSegment.start_seconds,
+          end: selectedSegment.end_seconds,
+          label: selectedSegment.timeRange,
+          timestamp: formatClock(selectedSegment.start_seconds),
+        }
+      : null
 
   if (isLoading) {
     return (
       <main className="min-h-screen bg-[#eeece5] bg-[linear-gradient(rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[size:48px_48px] p-6">
         <div className="rounded-3xl bg-white/90 p-6 text-sm text-slate-600 shadow-sm ring-1 ring-black/5 backdrop-blur">
-          Loading match review...
+          Loading match report...
         </div>
       </main>
-    );
+    )
   }
 
   if (error) {
     return (
       <main className="min-h-screen bg-[#eeece5] bg-[linear-gradient(rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[size:48px_48px] p-6">
         <div className="rounded-3xl bg-white/90 p-6 shadow-sm ring-1 ring-black/5 backdrop-blur">
-          <h1 className="text-xl font-semibold text-slate-900">Unable to load match review</h1>
+          <h1 className="text-xl font-semibold text-slate-900">Unable to load match report</h1>
           <p className="mt-2 text-sm text-slate-600">{error}</p>
         </div>
       </main>
-    );
+    )
   }
 
   return (
     <main className="min-h-screen bg-[#eeece5] bg-[linear-gradient(rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[size:48px_48px] text-slate-900 flex flex-col gap-6 p-6">
-        <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Match Review</h1>
-            <p className="text-sm text-slate-600">{matchTitle}</p>
-          </div>
-          <section className="grid min-w-[18rem] grid-cols-2 gap-3 rounded-3xl bg-white/90 p-3 shadow-sm ring-1 ring-black/5 backdrop-blur">
-            <div className="rounded-2xl bg-rose-50 px-4 py-3 ring-1 ring-rose-100">
-              <p className="text-xs font-medium uppercase tracking-wide text-rose-700">Red Score</p>
-              <p className="mt-2 text-3xl font-semibold text-rose-900">{redScore}</p>
-            </div>
-            <div className="rounded-2xl bg-blue-50 px-4 py-3 ring-1 ring-blue-100">
-              <p className="text-xs font-medium uppercase tracking-wide text-blue-700">Blue Score</p>
-              <p className="mt-2 text-3xl font-semibold text-blue-900">{blueScore}</p>
-            </div>
-          </section>
-        </header>
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-          <VideoReviewPanel
-            scoringEvents={scoringEvents}
-            selectedEventId={selectedEventId}
-            onSelectEvent={(id) => setSelectedEventId(id)}
-            scoringEvent={selectedEvent}
-            videoUrl={videoUrl}
+      <header className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Match Breakdown</h1>
+        <p className="text-sm text-slate-600">{matchTitle}</p>
+      </header>
+
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+        <VideoReviewPanel
+          videoUrl={videoUrl}
+          segments={segments}
+          events={events}
+          selected={selected}
+          replay={replay}
+          onSelectEvent={(id) => setSelected({ kind: 'event', id })}
+          onSelectSegment={(id) => setSelected({ kind: 'segment', id })}
+        />
+        <div className="flex w-full flex-col gap-6 xl:max-w-md">
+          <SelectedItemPanel
+            selectedEvent={selectedEvent}
+            selectedSegment={selectedSegment}
+            isSaving={isSaving}
+            error={reviewError}
+            onEventReview={handleEventReview}
+            onSegmentReview={handleSegmentReview}
           />
-          <SelectedEventPanel 
-            scoringEvent={selectedEvent}
-            isSavingReview={isSavingReview}
-            reviewError={reviewError}
-            onAccept={() => {
-              if (selectedEventId !== null) {
-                void handleReviewDecision(selectedEventId, "accepted");
-              }
-            }}
-            onReject={() => {
-              if (selectedEventId !== null) {
-                void handleReviewDecision(selectedEventId, "rejected");
-              }
-            }}
-            onReset={() => {
-              if (selectedEventId !== null) {
-                void handleReviewDecision(selectedEventId, "pending");
-              }
-            }}
-            onNoteChange={(note) => selectedEventId !== null && handleReviewNoteChange(selectedEventId, note)}
-         />
+          <AnalyticsPanel analytics={analytics} redName={redName} blueName={blueName} />
         </div>
+      </div>
     </main>
   )
 }

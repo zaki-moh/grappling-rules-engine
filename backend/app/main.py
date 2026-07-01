@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from pathlib import Path
 import shutil
 from typing import Literal
@@ -7,12 +8,35 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from app.core.analytics import build_analytics
+from app.core.timeline import format_seconds_as_timestamp
 from app.pipeline import analyze_match_video
 
 RulesetType = Literal["system", "custom"]
-MatchStatus = Literal["created", "processing", "ready_for_review", "completed"]
-ReviewStatus = Literal["pending", "accepted", "rejected"]
+MatchStatus = Literal["created", "processing", "analyzed", "failed"]
+ReviewStatus = Literal["pending", "confirmed", "corrected", "rejected"]
 CompetitorSide = Literal["red", "blue"]
+Position = Literal[
+    "standing",
+    "closed_guard",
+    "half_guard",
+    "side_control",
+    "mount",
+    "back_control",
+    "turtle",
+    "scramble",
+    "unknown",
+]
+EventType = Literal[
+    "guard_pass",
+    "sweep",
+    "reversal",
+    "submission_attempt",
+    "escape",
+    "back_take",
+    "mount_transition",
+    "scramble",
+]
 
 
 class Ruleset(BaseModel):
@@ -27,7 +51,7 @@ class Ruleset(BaseModel):
 class MatchCreate(BaseModel):
     """Request body for creating a match analysis session."""
 
-    ruleset_id: str = Field(min_length=1)
+    ruleset_id: str | None = None
     red_competitor: str | None = None
     blue_competitor: str | None = None
 
@@ -42,10 +66,10 @@ class MatchUpdate(BaseModel):
 
 
 class Match(BaseModel):
-    """A single bout being analyzed under one ruleset."""
+    """A single bout being analyzed."""
 
     id: int = Field(gt=0)
-    ruleset_id: str = Field(min_length=1)
+    ruleset_id: str | None = None
     red_competitor: str | None = None
     blue_competitor: str | None = None
     status: MatchStatus = "created"
@@ -55,41 +79,57 @@ class Match(BaseModel):
     video_size_bytes: int | None = Field(default=None, ge=0)
 
 
-class ScoringEventCreate(BaseModel):
-    """Request body for creating a proposed scoring event."""
-
-    match_id: int = Field(gt=0)
-    event_type: str = Field(min_length=1)
-    team: CompetitorSide
-    points: int = Field(ge=0)
-    timestamp: str = Field(pattern=r"^\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$")
-    replay_start_seconds: float = Field(ge=0)
-    replay_end_seconds: float = Field(ge=0)
-    position: str = Field(min_length=1)
-    confidence: float | None = Field(default=None, ge=0, le=1)
-
-
-class ScoringEvent(BaseModel):
-    """A single machine-proposed scoring moment tied to a match."""
+class PositionSegment(BaseModel):
+    """A contiguous stretch of the match in one position."""
 
     id: int = Field(gt=0)
     match_id: int = Field(gt=0)
-    event_type: str = Field(min_length=1)
-    team: CompetitorSide
-    points: int = Field(ge=0)
-    timestamp: str = Field(pattern=r"^\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$")
-    replay_start_seconds: float = Field(ge=0)
-    replay_end_seconds: float = Field(ge=0)
-    position: str = Field(min_length=1)
+    position: Position
+    start_seconds: float = Field(ge=0)
+    end_seconds: float = Field(ge=0)
+    top_athlete: CompetitorSide | None = None
     confidence: float | None = Field(default=None, ge=0, le=1)
     review_status: ReviewStatus = "pending"
+    corrected_position: Position | None = None
+    corrected_top_athlete: CompetitorSide | None = None
     review_note: str | None = None
 
 
-class ScoringEventReview(BaseModel):
-    """Request body for reviewing a proposed scoring event."""
+class MatchEvent(BaseModel):
+    """A descriptive (non-scoring) event located on the match timeline."""
+
+    id: int = Field(gt=0)
+    match_id: int = Field(gt=0)
+    event_type: EventType
+    timestamp_seconds: float = Field(ge=0)
+    timestamp: str
+    athlete: CompetitorSide | None = None
+    from_position: Position | None = None
+    to_position: Position | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    replay_start_seconds: float = Field(ge=0)
+    replay_end_seconds: float = Field(ge=0)
+    review_status: ReviewStatus = "pending"
+    corrected_event_type: EventType | None = None
+    corrected_athlete: CompetitorSide | None = None
+    review_note: str | None = None
+
+
+class SegmentReview(BaseModel):
+    """Coach correction applied to a position segment."""
 
     review_status: ReviewStatus
+    corrected_position: Position | None = None
+    corrected_top_athlete: CompetitorSide | None = None
+    review_note: str | None = None
+
+
+class EventReview(BaseModel):
+    """Coach correction applied to a match event."""
+
+    review_status: ReviewStatus
+    corrected_event_type: EventType | None = None
+    corrected_athlete: CompetitorSide | None = None
     review_note: str | None = None
 
 
@@ -128,30 +168,33 @@ RULESETS: dict[str, Ruleset] = {
 }
 
 MATCHES: list[Match] = []
-SCORING_EVENTS_BY_MATCH: dict[int, list[ScoringEvent]] = {}
+POSITION_SEGMENTS_BY_MATCH: dict[int, list[PositionSegment]] = {}
+EVENTS_BY_MATCH: dict[int, list[MatchEvent]] = {}
 UPLOAD_ROOT = Path(__file__).resolve().parents[1] / "uploads"
-
-redScore = 0
-blueScore = 0
 
 
 def get_match_or_404(match_id: int) -> Match:
-    match = next((stored_match for stored_match in MATCHES if stored_match.id == match_id), None)
+    match = next((stored for stored in MATCHES if stored.id == match_id), None)
     if match is None:
         raise HTTPException(status_code=404, detail="match not found")
-
     return match
 
 
-def get_scoring_event_or_404(match_id: int, event_id: int) -> ScoringEvent:
+def get_segment_or_404(match_id: int, segment_id: int) -> PositionSegment:
     get_match_or_404(match_id)
+    segments = POSITION_SEGMENTS_BY_MATCH.get(match_id, [])
+    segment = next((stored for stored in segments if stored.id == segment_id), None)
+    if segment is None:
+        raise HTTPException(status_code=404, detail="position segment not found")
+    return segment
 
-    match_events = SCORING_EVENTS_BY_MATCH.get(match_id, [])
 
-    event = next((stored_event for stored_event in match_events if stored_event.id == event_id), None)
+def get_event_or_404(match_id: int, event_id: int) -> MatchEvent:
+    get_match_or_404(match_id)
+    events = EVENTS_BY_MATCH.get(match_id, [])
+    event = next((stored for stored in events if stored.id == event_id), None)
     if event is None:
-        raise HTTPException(status_code=404, detail="scoring event not found")
-
+        raise HTTPException(status_code=404, detail="match event not found")
     return event
 
 
@@ -168,16 +211,14 @@ def list_rulesets():
 @app.get("/rulesets/{ruleset_id}")
 def get_ruleset(ruleset_id: str):
     ruleset = RULESETS.get(ruleset_id)
-
     if ruleset is None:
         raise HTTPException(status_code=404, detail="ruleset not found")
-
     return {"ruleset": ruleset.model_dump()}
 
 
 @app.post("/matches")
 def create_match(match: MatchCreate):
-    if match.ruleset_id not in RULESETS:
+    if match.ruleset_id is not None and match.ruleset_id not in RULESETS:
         raise HTTPException(status_code=404, detail="ruleset not found")
 
     stored_match = Match(id=len(MATCHES) + 1, **match.model_dump())
@@ -254,7 +295,6 @@ def get_match_video(match_id: int):
     )
 
 
-
 @app.patch("/matches/{match_id}")
 def update_match(match_id: int, match_update: MatchUpdate):
     match = get_match_or_404(match_id)
@@ -270,8 +310,8 @@ def update_match(match_id: int, match_update: MatchUpdate):
     if ruleset_id is not None and ruleset_id not in RULESETS:
         raise HTTPException(status_code=404, detail="ruleset not found")
     if ruleset_id is not None and ruleset_id != match.ruleset_id:
-        has_scoring_events = len(SCORING_EVENTS_BY_MATCH.get(match_id, [])) > 0
-        if match.status != "created" or has_scoring_events:
+        has_segments = len(POSITION_SEGMENTS_BY_MATCH.get(match_id, [])) > 0
+        if match.status != "created" or has_segments:
             raise HTTPException(
                 status_code=409,
                 detail="ruleset_id cannot be changed after analysis has started",
@@ -283,107 +323,189 @@ def update_match(match_id: int, match_update: MatchUpdate):
     return {"message": "Match updated", "match": match.model_dump()}
 
 
-@app.post("/scoring_events")
-def create_scoring_event(scoring_event: ScoringEventCreate):
-    match = get_match_or_404(scoring_event.match_id)
-
-    if match.status not in {"processing", "ready_for_review"}:
-        raise HTTPException(
-            status_code=409,
-            detail="scoring events can only be created after analysis has started",
-        )
-
-    stored_event = ScoringEvent(
-        id=len(SCORING_EVENTS_BY_MATCH.get(scoring_event.match_id, [])) + 1,
-        **scoring_event.model_dump(),
-    )
-
-    SCORING_EVENTS_BY_MATCH.setdefault(scoring_event.match_id, []).append(stored_event)
-
-    return {"message": "Scoring event created", "event": stored_event.model_dump()}
-
-
-@app.get("/matches/{match_id}/scoring_events")
-def get_scoring_events(match_id: int):
-    get_match_or_404(match_id)
-
-    return {
-        "match_id": match_id,
-        "scoring_events": [
-            scoring_event.model_dump()
-            for scoring_event in SCORING_EVENTS_BY_MATCH.get(match_id, [])
-        ],
-    }
-
-
-@app.patch("/matches/{match_id}/scoring_events/{event_id}/review")
-def review_scoring_event(match_id: int, event_id: int, review: ScoringEventReview):
-    event = get_scoring_event_or_404(match_id, event_id)
-
-    event.review_status = review.review_status
-    if review.review_note is not None:
-        event.review_note = review.review_note
-
-    return {"message": "Scoring event review status updated", "event": event.model_dump()}
-
-@app.get("/matches/{match_id}/score_summary")
-def get_match_score(match_id: int):
-    get_match_or_404(match_id)
-
-    scoring_events = SCORING_EVENTS_BY_MATCH.get(match_id, [])
-    red_score_proposed = sum(event.points for event in scoring_events if event.team == "red" and event.review_status != "rejected")
-    blue_score_proposed = sum(event.points for event in scoring_events if event.team == "blue" and event.review_status != "rejected")
-    red_score_confirmed = sum(event.points for event in scoring_events if event.team == "red" and event.review_status == "accepted")
-    blue_score_confirmed = sum(event.points for event in scoring_events if event.team == "blue" and event.review_status == "accepted")
-    return {
-        "match_id": match_id, 
-        "proposed_score_summary": {
-            "red": red_score_proposed,
-            "blue": blue_score_proposed
-        },
-        "confirmed_score_summary": {
-            "red": red_score_confirmed,
-            "blue": blue_score_confirmed
-        },  
-        }
-
 @app.post("/matches/{match_id}/analysis")
 def start_match_analysis(match_id: int):
     match = get_match_or_404(match_id)
 
     if match.status != "created":
-        raise HTTPException(status_code=409, detail="analysis has already been started for this match")
+        raise HTTPException(
+            status_code=409, detail="analysis has already been started for this match"
+        )
     if match.video_path is None:
-        raise HTTPException(status_code=409, detail="upload match video before starting analysis")
+        raise HTTPException(
+            status_code=409, detail="upload match video before starting analysis"
+        )
 
     match.status = "processing"
-    detected_events = analyze_match_video(Path(match.video_path))
+    try:
+        result = analyze_match_video(Path(match.video_path))
+    except Exception as error:  # noqa: BLE001 - surface any analysis failure to the client
+        match.status = "failed"
+        raise HTTPException(status_code=500, detail=f"analysis failed: {error}")
 
-    SCORING_EVENTS_BY_MATCH[match_id] = [
-        ScoringEvent(
+    POSITION_SEGMENTS_BY_MATCH[match_id] = [
+        PositionSegment(
+            id=index + 1,
+            match_id=match_id,
+            position=segment.position,
+            start_seconds=round(segment.start_seconds, 3),
+            end_seconds=round(segment.end_seconds, 3),
+            top_athlete=segment.top_athlete,
+            confidence=segment.confidence,
+        )
+        for index, segment in enumerate(result.segments)
+    ]
+
+    EVENTS_BY_MATCH[match_id] = [
+        MatchEvent(
             id=index + 1,
             match_id=match_id,
             event_type=event.event_type,
-            team=event.team,
-            points=event.points,
-            timestamp=event.timestamp,
+            timestamp_seconds=round(event.timestamp_seconds, 3),
+            timestamp=format_seconds_as_timestamp(event.timestamp_seconds),
+            athlete=event.athlete,
+            from_position=event.from_position,
+            to_position=event.to_position,
+            confidence=event.confidence,
             replay_start_seconds=event.replay_start_seconds,
             replay_end_seconds=event.replay_end_seconds,
-            position=event.position,
-            confidence=event.confidence,
         )
-        for index, event in enumerate(detected_events)
+        for index, event in enumerate(result.events)
     ]
 
-    match.status = "ready_for_review"
+    match.status = "analyzed"
 
     return {
         "message": "Match analysis completed",
         "match": match.model_dump(),
-        "created_scoring_events": len(detected_events),
+        "created_segments": len(result.segments),
+        "created_events": len(result.events),
     }
-    
+
+
+@app.get("/matches/{match_id}/position_timeline")
+def get_position_timeline(match_id: int):
+    get_match_or_404(match_id)
+    return {
+        "match_id": match_id,
+        "position_segments": [
+            segment.model_dump()
+            for segment in POSITION_SEGMENTS_BY_MATCH.get(match_id, [])
+        ],
+    }
+
+
+@app.get("/matches/{match_id}/events")
+def get_match_events(match_id: int):
+    get_match_or_404(match_id)
+    return {
+        "match_id": match_id,
+        "events": [event.model_dump() for event in EVENTS_BY_MATCH.get(match_id, [])],
+    }
+
+
+@app.get("/matches/{match_id}/analytics")
+def get_match_analytics(match_id: int):
+    get_match_or_404(match_id)
+
+    segments = [
+        _effective_segment(segment)
+        for segment in POSITION_SEGMENTS_BY_MATCH.get(match_id, [])
+    ]
+    events = [
+        _effective_event(event)
+        for event in EVENTS_BY_MATCH.get(match_id, [])
+        if event.review_status != "rejected"
+    ]
+
+    summary = build_analytics(segments, events)
+    return {"match_id": match_id, "analytics": asdict(summary)}
+
+
+@app.patch("/matches/{match_id}/segments/{segment_id}/review")
+def review_position_segment(match_id: int, segment_id: int, review: SegmentReview):
+    segment = get_segment_or_404(match_id, segment_id)
+
+    segment.review_status = review.review_status
+    if review.corrected_position is not None:
+        segment.corrected_position = review.corrected_position
+    if review.corrected_top_athlete is not None:
+        segment.corrected_top_athlete = review.corrected_top_athlete
+    if review.review_note is not None:
+        segment.review_note = review.review_note
+
+    return {"message": "Position segment review updated", "segment": segment.model_dump()}
+
+
+@app.patch("/matches/{match_id}/events/{event_id}/review")
+def review_match_event(match_id: int, event_id: int, review: EventReview):
+    event = get_event_or_404(match_id, event_id)
+
+    event.review_status = review.review_status
+    if review.corrected_event_type is not None:
+        event.corrected_event_type = review.corrected_event_type
+    if review.corrected_athlete is not None:
+        event.corrected_athlete = review.corrected_athlete
+    if review.review_note is not None:
+        event.review_note = review.review_note
+
+    return {"message": "Match event review updated", "event": event.model_dump()}
+
 
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+class _EffectiveSegment(BaseModel):
+    position: Position
+    start_seconds: float
+    end_seconds: float
+    top_athlete: CompetitorSide | None = None
+
+
+class _EffectiveEvent(BaseModel):
+    event_type: EventType
+    athlete: CompetitorSide | None = None
+    confidence: float | None = None
+
+
+def _effective_segment(segment: PositionSegment) -> _EffectiveSegment:
+    """Apply a coach correction (if any) before analytics aggregation."""
+
+    if segment.review_status == "corrected":
+        position = segment.corrected_position or segment.position
+        top_athlete = (
+            segment.corrected_top_athlete
+            if segment.corrected_top_athlete is not None
+            else segment.top_athlete
+        )
+    else:
+        position = segment.position
+        top_athlete = segment.top_athlete
+
+    return _EffectiveSegment(
+        position=position,
+        start_seconds=segment.start_seconds,
+        end_seconds=segment.end_seconds,
+        top_athlete=top_athlete,
+    )
+
+
+def _effective_event(event: MatchEvent) -> _EffectiveEvent:
+    """Apply a coach correction (if any) before analytics aggregation."""
+
+    if event.review_status == "corrected":
+        event_type = event.corrected_event_type or event.event_type
+        athlete = (
+            event.corrected_athlete
+            if event.corrected_athlete is not None
+            else event.athlete
+        )
+    else:
+        event_type = event.event_type
+        athlete = event.athlete
+
+    return _EffectiveEvent(
+        event_type=event_type, athlete=athlete, confidence=event.confidence
+    )

@@ -14,8 +14,8 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from app.candidates import Candidate, StabilityCheck
-from app.video_io import SampledFrame, VideoMetadata
+from app.core.candidates import Candidate, StabilityCheck
+from app.core.video_io import SampledFrame, VideoMetadata
 
 # How far before/after a high-motion window we look for the action to settle.
 PRE_CONTEXT_SECONDS = 3.0

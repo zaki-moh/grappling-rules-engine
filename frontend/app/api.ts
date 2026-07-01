@@ -1,17 +1,18 @@
 import type {
+  AnalyticsResponse,
   CreateMatchResponse,
-  CreateScoringEventResponse,
+  EventsResponse,
+  EventReviewRequest,
   HealthCheckResponse,
   MatchCreateRequest,
   MatchResponse,
   MatchesResponse,
-  ScoringEventReviewRequest,
-  ReviewScoringEventResponse,
+  PositionTimelineResponse,
+  ReviewEventResponse,
+  ReviewSegmentResponse,
   RulesetResponse,
   RulesetsResponse,
-  ScoringEventCreateRequest,
-  ScoringEventsResponse,
-  ScoreSummaryResponse,
+  SegmentReviewRequest,
   StartMatchAnalysisResponse,
   UploadMatchVideoResponse,
 } from "@/types/api";
@@ -21,7 +22,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8
 const buildUrl = (path: string) => `${API_BASE_URL}${path}`;
 
 const getMatchVideoUrl = (matchId: number) => buildUrl(`/matches/${matchId}/video`);
-
 
 const getRulesets = async (): Promise<RulesetsResponse> => {
   const response = await fetch(buildUrl("/rulesets"));
@@ -38,7 +38,6 @@ const getRuleset = async (rulesetId: string): Promise<RulesetResponse> => {
   }
   return response.json();
 };
-
 
 const createMatch = async (data: MatchCreateRequest): Promise<CreateMatchResponse> => {
   const response = await fetch(buildUrl("/matches"), {
@@ -87,7 +86,6 @@ const uploadMatchVideo = async (
   return response.json();
 };
 
-
 const startMatchAnalysis = async (matchId: number): Promise<StartMatchAnalysisResponse> => {
   const response = await fetch(buildUrl(`/matches/${matchId}/analysis`), {
     method: "POST",
@@ -98,39 +96,39 @@ const startMatchAnalysis = async (matchId: number): Promise<StartMatchAnalysisRe
   return response.json();
 };
 
-const getScoringEvents = async (matchId: number): Promise<ScoringEventsResponse> => {
-  const response = await fetch(buildUrl(`/matches/${matchId}/scoring_events`));
-  if (!response.ok) {
-    throw new Error("Failed to fetch scoring events");
-  }
-
-
-  return response.json();
-};
-
-const createScoringEvent = async (
-  data: ScoringEventCreateRequest,
-): Promise<CreateScoringEventResponse> => {
-  const response = await fetch(buildUrl("/scoring_events"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) {
-    throw new Error("Failed to create scoring event");
-  }
-  return response.json();
-};
-
-const reviewScoringEvent = async (
+const getPositionTimeline = async (
   matchId: number,
-  eventId: number,
-  data: ScoringEventReviewRequest,
-): Promise<ReviewScoringEventResponse> => {
+): Promise<PositionTimelineResponse> => {
+  const response = await fetch(buildUrl(`/matches/${matchId}/position_timeline`));
+  if (!response.ok) {
+    throw new Error("Failed to fetch position timeline");
+  }
+  return response.json();
+};
+
+const getMatchEvents = async (matchId: number): Promise<EventsResponse> => {
+  const response = await fetch(buildUrl(`/matches/${matchId}/events`));
+  if (!response.ok) {
+    throw new Error("Failed to fetch match events");
+  }
+  return response.json();
+};
+
+const getAnalytics = async (matchId: number): Promise<AnalyticsResponse> => {
+  const response = await fetch(buildUrl(`/matches/${matchId}/analytics`));
+  if (!response.ok) {
+    throw new Error("Failed to fetch analytics");
+  }
+  return response.json();
+};
+
+const reviewSegment = async (
+  matchId: number,
+  segmentId: number,
+  data: SegmentReviewRequest,
+): Promise<ReviewSegmentResponse> => {
   const response = await fetch(
-    buildUrl(`/matches/${matchId}/scoring_events/${eventId}/review`),
+    buildUrl(`/matches/${matchId}/segments/${segmentId}/review`),
     {
       method: "PATCH",
       headers: {
@@ -140,15 +138,28 @@ const reviewScoringEvent = async (
     },
   );
   if (!response.ok) {
-    throw new Error("Failed to review scoring event");
+    throw new Error("Failed to review position segment");
   }
   return response.json();
 };
 
-const getScoreSummary = async (matchId: number): Promise<ScoreSummaryResponse> => {
-  const response = await fetch(buildUrl(`/matches/${matchId}/score_summary`));
+const reviewEvent = async (
+  matchId: number,
+  eventId: number,
+  data: EventReviewRequest,
+): Promise<ReviewEventResponse> => {
+  const response = await fetch(
+    buildUrl(`/matches/${matchId}/events/${eventId}/review`),
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    },
+  );
   if (!response.ok) {
-    throw new Error("Failed to fetch score summary");
+    throw new Error("Failed to review match event");
   }
   return response.json();
 };
@@ -170,9 +181,10 @@ export {
   getMatchVideoUrl,
   uploadMatchVideo,
   startMatchAnalysis,
-  getScoringEvents,
-  createScoringEvent,
-  reviewScoringEvent,
-  getScoreSummary, 
+  getPositionTimeline,
+  getMatchEvents,
+  getAnalytics,
+  reviewSegment,
+  reviewEvent,
   healthCheck,
 };

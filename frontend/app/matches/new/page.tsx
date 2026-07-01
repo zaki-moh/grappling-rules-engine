@@ -116,7 +116,7 @@ const NewMatchPage = () => {
       await startMatchAnalysis(createdMatch.match.id);
       setSetupFeedback({
         tone: "success",
-        message: "Match created and analysis started. The review workspace is being prepared.",
+        message: "Match created and analysis started. The match breakdown is being prepared.",
       });
       router.push(`/matches/${createdMatch.match.id}`);
     } catch (error) {
@@ -157,12 +157,12 @@ const NewMatchPage = () => {
               Tournament intake desk
             </p>
             <h1 className="text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-              Prepare the bout before the scoring engine starts.
+              Prepare the bout before the breakdown is generated.
             </h1>
             <p className="mt-5 max-w-xl text-base leading-7 text-slate-600">
-              Choose the ruleset, label each corner, and attach footage. The
-              review workspace will use this match setup to load events,
-              timestamps, and confirmed score summaries from the backend.
+              Label each corner and attach footage; a ruleset is optional. The
+              report workspace will load the position timeline, events, and
+              analytics from the backend.
             </p>
 
             <div className="mt-8 rounded-3xl bg-white/85 p-5 shadow-sm ring-1 ring-black/5 backdrop-blur">
@@ -230,9 +230,9 @@ const NewMatchPage = () => {
               <section>
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-950">Ruleset</h3>
+                    <h3 className="text-sm font-semibold text-slate-950">Ruleset (optional)</h3>
                     <p className="mt-1 text-sm text-slate-500">
-                      Pick the scoring rules the analysis pipeline should apply.
+                      Used only for optional point estimates in the breakdown.
                     </p>
                   </div>
                 </div>
@@ -335,7 +335,7 @@ const NewMatchPage = () => {
               <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
                 <div className="max-w-md">
                   <p className="text-sm leading-6 text-slate-500">
-                    Next step: create the match, start analysis, then route into the review workspace.
+                    Next step: create the match, start analysis, then route into the match breakdown.
                   </p>
                   {setupFeedback ? (
                     <p
